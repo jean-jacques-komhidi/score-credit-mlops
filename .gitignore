@@ -1,0 +1,22 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+
+# Données (trop lourdes)
+backend/data/
+backend/notebooks/models/
+
+# MLFlow
+backend/mlruns/
+backend/mlflow.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Divers
+*.pkl
+*.csv
+.DS_Store
