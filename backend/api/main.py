@@ -1,0 +1,27 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from api.routes import predict
+
+app = FastAPI(
+    title="Score Crédit API",
+    description="API de scoring crédit basée sur XGBoost",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(predict.router, prefix="/api", tags=["Scoring"])
+
+@app.get("/")
+def health_check():
+    return {
+        "status": "OK",
+        "message": "Score Crédit API opérationnelle",
+        "version": "1.0.0"
+    }
