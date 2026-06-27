@@ -117,12 +117,62 @@ Dans le contexte du scoring crédit :
 4. NAME_INCOME_TYPE_Commercial associate (11.7%)
 5. EXT_SOURCE_2 (9.1%)
 
+## API FastAPI
+
+### Lancer l'API
+```bash
+cd backend
+venv\Scripts\activate
+uvicorn api.main:app --reload --port 8000
+```
+
+### Endpoints
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/` | Health check |
+| GET | `/api/health` | Statut du modèle |
+| POST | `/api/predict` | Prédiction du score de crédit |
+
+### Documentation interactive
+👉 http://127.0.0.1:8000/docs
+
+### Exemple de requête
+```json
+{
+  "AMT_INCOME_TOTAL": 150000,
+  "AMT_CREDIT": 500000,
+  "AMT_ANNUITY": 25000,
+  "AMT_GOODS_PRICE": 450000,
+  "DAYS_BIRTH": -12000,
+  "DAYS_EMPLOYED": -2000,
+  "EXT_SOURCE_2": 0.6,
+  "EXT_SOURCE_3": 0.5,
+  "CNT_CHILDREN": 1,
+  "CNT_FAM_MEMBERS": 3,
+  "NAME_CONTRACT_TYPE": 0,
+  "FLAG_OWN_CAR": 1,
+  "FLAG_OWN_REALTY": 1,
+  "CODE_GENDER_M": 0
+}
+```
+
+### Exemple de réponse
+```json
+{
+  "score": 0.1725,
+  "probabilite_defaut": 17.25,
+  "decision": "ACCORDÉ",
+  "niveau_risque": "FAIBLE",
+  "score_metier": 1.0
+}
+```
+
 ## Étapes MLOps complétées
 - [x] Étape 1 — Environnement MLFlow + PostgreSQL
 - [x] Étape 2 — Préparation des données
 - [x] Étape 3 — Score métier
 - [x] Étape 4 — Entraînement et comparaison des modèles
-- [ ] Étape 5 — Déploiement API FastAPI
+- [x] Étape 5 — Déploiement API FastAPI
 - [ ] Étape 6 — Interface React
 - [ ] Étape 7 — Data drift + soutenance
 
