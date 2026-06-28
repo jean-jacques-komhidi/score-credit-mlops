@@ -55,3 +55,12 @@ export const getDriftStats = async () => {
     throw new Error('Erreur chargement drift stats')
   }
 }
+
+export const getActionsLog = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/actions-log`)
+    return response.data
+  } catch (error) {
+    throw new Error('Erreur chargement actions log')
+  }
+}

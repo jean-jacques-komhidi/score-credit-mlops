@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useTheme } from "../context/ThemeContext"
+import { useUser } from "../context/UserContext"
 import { LayoutDashboard, Search, TrendingUp, Settings, Activity } from "lucide-react"
 
 const navItems = [
@@ -10,6 +11,7 @@ const navItems = [
 
 export default function Sidebar() {
   const { isDark } = useTheme()
+  const { user } = useUser()
 
   return (
     <aside className={`fixed top-0 left-0 h-full w-64 z-10 flex flex-col shadow-xl transition-colors duration-300
@@ -57,14 +59,20 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className={`px-4 py-4 border-t space-y-2 ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-        <button className={`flex items-center gap-3 px-4 py-3 rounded-xl w-full font-medium transition-all
-          ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-gray-600 hover:bg-gray-100"}`}>
+        <NavLink
+          to="/parametres"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-4 py-3 rounded-xl w-full font-medium transition-all
+            ${isActive
+              ? "bg-blue-600 text-white shadow-md"
+              : isDark ? "text-slate-300 hover:bg-slate-800" : "text-gray-600 hover:bg-gray-100"}`
+          }>
           <Settings size={20} />
           <span>Paramètres</span>
-        </button>
+        </NavLink>
         <div className={`px-4 pt-2 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-400"}`}>Master 2 UCAO</p>
-          <p className="text-xs font-semibold">KOMHIDI Jean Jacques</p>
+          <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-400"}`}>{user.organisation}</p>
+          <p className="text-xs font-semibold">{user.prenom} {user.nom}</p>
         </div>
       </div>
     </aside>

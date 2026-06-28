@@ -43,6 +43,24 @@ def calculer_niveau_risque(proba: float) -> str:
     else:
         return "TRÈS ÉLEVÉ"
 
+def log_action(type_action: str, titre: str, message: str, statut: str = "info"):
+    """Enregistre une action dans la table actions_log"""
+    if db_engine:
+        try:
+            with db_engine.connect() as conn:
+                conn.execute(text("""
+                    INSERT INTO actions_log (type, titre, message, statut)
+                    VALUES (:type, :titre, :message, :statut)
+                """), {
+                    "type": type_action,
+                    "titre": titre,
+                    "message": message,
+                    "statut": statut
+                })
+                conn.commit()
+        except Exception as e:
+            print(f"⚠️ Erreur log action : {e}")
+
 def generer_explication(decision, shap_features, client_dict):
     labels = {
         "EXT_SOURCE_3": "score de solvabilité externe 3",
@@ -211,6 +229,15 @@ def predict(client: ClientData):
                 })
                 conn.commit()
                 print("✅ Prédiction sauvegardée !")
+
+            # Logger l'action
+            log_action(
+                "prediction",
+                "Nouvelle prédiction",
+                f"Décision : {decision} — Probabilité : {round(float(proba)*100, 2)}% — Risque : {calculer_niveau_risque(proba)}",
+                "success" if decision == "ACCORDÉ" else "warning"
+            )
+
         except Exception as e:
             print(f"⚠️ Erreur sauvegarde : {e}")
 
@@ -319,7 +346,6 @@ def mlflow_runs():
                 auc = run.data.metrics.get("auc_roc", 0)
                 score = run.data.metrics.get("score_metier", 0)
 
-                # Garder seulement si AUC > 0 et meilleur run par modèle
                 if auc > 0 and (modele not in seen_models or auc > seen_models[modele]["auc_roc"]):
                     seen_models[modele] = {
                         "run_id": run.info.run_id[:8],
@@ -330,7 +356,6 @@ def mlflow_runs():
                         "statut": "✅ Terminé"
                     }
 
-        # Trier par AUC-ROC décroissant
         runs_data = sorted(seen_models.values(), key=lambda x: x["auc_roc"], reverse=True)
         return runs_data
 
@@ -389,5 +414,33 @@ def drift_stats():
             "drift_features": drift_results,
             "statut_global": "NORMAL" if all(d["statut"] == "NORMAL" for d in drift_results) else "ALERTE"
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/actions-log")
+def actions_log():
+    if db_engine is None:
+        raise HTTPException(status_code=500, detail="DB non disponible")
+    try:
+        with db_engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT id, date_action, type, titre, message, statut
+                FROM actions_log
+                ORDER BY date_action DESC
+                LIMIT 20
+            """))
+            rows = result.fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "date": r[1].strftime("%Y-%m-%d %H:%M"),
+                    "type": r[2],
+                    "titre": r[3],
+                    "message": r[4],
+                    "statut": r[5]
+                }
+                for r in rows
+            ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
