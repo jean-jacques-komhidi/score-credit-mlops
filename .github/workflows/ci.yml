@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -38,12 +38,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js 18
-        uses: actions/setup-node@v3
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: |
@@ -54,6 +54,8 @@ jobs:
         run: |
           cd frontend
           npm run build
+        env:
+          VITE_API_URL: http://127.0.0.1:8000
 
   deploy-notify:
     runs-on: ubuntu-latest
