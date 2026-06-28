@@ -17,6 +17,7 @@ Ce backend couvre l'intégralité du cycle MLOps : préparation des données, en
 | Evidently | Détection du data drift |
 | Pandas / NumPy | Manipulation des données |
 | imbalanced-learn | Rééquilibrage (SMOTE) |
+| SQLAlchemy | ORM pour PostgreSQL |
 
 ## Structure du projet
 ```
@@ -55,7 +56,8 @@ PostgreSQL
 ├── mlflow_db        ← MLFlow (runs, métriques, expériences)
 └── score_credit_db  ← Données métier
     ├── application_train  ← Dataset original (307k lignes)
-    └── predictions        ← Historique des prédictions en production
+    ├── predictions        ← Historique des prédictions en production
+    └── actions_log        ← Historique des actions système
 ```
 
 ## Installation
@@ -105,11 +107,12 @@ uvicorn api.main:app --reload --port 8000
 |---------|----------|-------------|
 | GET | `/` | Health check |
 | GET | `/api/health` | Statut du modèle |
-| POST | `/api/predict` | Prédiction + SHAP + Explication |
+| POST | `/api/predict` | Prédiction + SHAP + Explication naturelle |
 | GET | `/api/historique` | Historique des prédictions |
 | GET | `/api/stats` | Statistiques globales |
-| GET | `/api/mlflow-runs` | Runs MLFlow (dédupliqués) |
+| GET | `/api/mlflow-runs` | Runs MLFlow (dédupliqués par modèle) |
 | GET | `/api/drift-stats` | Analyse du data drift |
+| GET | `/api/actions-log` | Historique des actions système |
 
 ### Documentation interactive
 👉 http://127.0.0.1:8000/docs
@@ -142,7 +145,13 @@ uvicorn api.main:app --reload --port 8000
   "decision": "ACCORDÉ",
   "niveau_risque": "FAIBLE",
   "score_metier": 1.0,
-  "shap_features": [...],
+  "shap_features": [
+    {
+      "feature": "NAME_EDUCATION_TYPE_Secondary / secondary special",
+      "impact": -0.57,
+      "direction": "protection"
+    }
+  ],
   "explication": "✅ Le crédit a été accordé grâce aux facteurs suivants..."
 }
 ```
@@ -165,11 +174,11 @@ Dans le contexte du scoring crédit :
 - **Formule** : `Score = (10 × FN) + (1 × FP)` — à minimiser
 
 ## Top Features SHAP
-1. Niveau d'études secondaires (57.0%)
-2. Téléphone professionnel (54.9%)
-3. Type de revenu : Salarié (45.7%)
-4. Densité de population régionale (42.6%)
-5. Demandes bureau crédit (1 an) (42.4%)
+1. Niveau d'études secondaires (-57.0% — réduit le risque)
+2. Téléphone professionnel (+54.9% — augmente le risque)
+3. Type de revenu : Salarié (-45.7% — réduit le risque)
+4. Densité de population régionale (-42.6% — réduit le risque)
+5. Demandes bureau crédit (1 an) (-42.4% — réduit le risque)
 
 ## Analyse Data Drift
 | Feature | Référence | Production | Écart | Statut |
@@ -178,15 +187,24 @@ Dans le contexte du scoring crédit :
 | Montant crédit | 595 257 FCFA | 500 000 FCFA | 16.0% | 🟢 NORMAL |
 | Mensualité | 26 987 FCFA | 25 000 FCFA | 7.4% | 🟢 NORMAL |
 
+## Logging des actions
+Chaque prédiction est automatiquement loggée dans la table `actions_log` avec :
+- Type d'action (prediction, drift, modèle)
+- Titre et message descriptif
+- Statut (success, warning, error, info)
+- Date et heure
+
 ## Étapes MLOps complétées
 - [x] Étape 1 — Environnement MLFlow + PostgreSQL
 - [x] Étape 2 — Préparation des données (SMOTE, feature engineering)
 - [x] Étape 3 — Score métier (FP/FN)
 - [x] Étape 4 — Entraînement et comparaison des modèles + SHAP
-- [x] Étape 5 — Déploiement API FastAPI
+- [x] Étape 5 — Déploiement API FastAPI (8 endpoints)
 - [x] Étape 6 — Interface React + Dashboard
 - [x] Étape 7 — Data Drift + Evidently
+- [x] Bonus — CI/CD GitHub Actions
 
 ## Auteur
 **KOMHIDI Jean Jacques** — Master 2 UCAO
 Encadrant : AIDARA CHAMSEDINE — Tech Lead Data & IA
+Année : 2025-2026
