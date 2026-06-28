@@ -37,3 +37,21 @@ export const getStats = async () => {
     throw new Error('Erreur chargement stats')
   }
 }
+
+export const getMlflowRuns = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/mlflow-runs`)
+    return response.data
+  } catch (error) {
+    throw new Error('Erreur chargement MLFlow runs')
+  }
+}
+
+export const getDriftStats = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/drift-stats`)
+    return response.data
+  } catch (error) {
+    throw new Error('Erreur chargement drift stats')
+  }
+}

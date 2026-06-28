@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom"
 import { useTheme } from "../context/ThemeContext"
-import { LayoutDashboard, Search, TrendingUp, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Search, TrendingUp, Settings, Activity } from "lucide-react"
 
 const navItems = [
-  { path: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { path: "/", icon: LayoutDashboard, label: "Tableau de bord" },
   { path: "/analyse", icon: Search, label: "Analyse" },
+  { path: "/monitoring", icon: Activity, label: "Monitoring" },
 ]
 
 export default function Sidebar() {

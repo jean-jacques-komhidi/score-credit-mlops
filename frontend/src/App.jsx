@@ -3,6 +3,7 @@ import { ThemeProvider } from "./context/ThemeContext"
 import Sidebar from "./components/Sidebar"
 import Dashboard from "./pages/Dashboard"
 import Analyse from "./pages/Analyse"
+import Monitoring from "./pages/Monitoring"
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/analyse" element={<Analyse />} />
+          <Route path="/monitoring" element={<Monitoring />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

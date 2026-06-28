@@ -22,22 +22,26 @@ Ce backend couvre l'intégralité du cycle MLOps : préparation des données, en
 ```
 backend/
 ├── data/
-│   └── application_train.csv      # Dataset brut (non versionné)
+│   ├── application_train.csv      # Dataset brut (non versionné)
+│   └── rapport_drift.html         # Rapport Evidently Data Drift
 ├── notebooks/
 │   ├── 01_preparation_donnees.ipynb   # Nettoyage, feature engineering, SMOTE
 │   ├── 02_score_metier.ipynb          # Définition du score métier FP/FN
-│   └── 03_entrainement_modeles.ipynb  # Entraînement, comparaison, SHAP
+│   ├── 03_entrainement_modeles.ipynb  # Entraînement, comparaison, SHAP
+│   └── 04_data_drift.ipynb            # Analyse du data drift
 ├── models/
+│   ├── best_xgb.pkl               # Modèle XGBoost (meilleur)
+│   ├── feature_columns.pkl        # Colonnes du modèle
 │   ├── X_train.pkl                # Données d'entraînement
 │   ├── X_test.pkl                 # Données de test
 │   ├── y_train.pkl                # Labels d'entraînement
-│   ├── y_test.pkl                 # Labels de test
-│   ├── X_train_smote.pkl          # Données rééquilibrées (SMOTE)
-│   └── y_train_smote.pkl          # Labels rééquilibrés
+│   └── y_test.pkl                 # Labels de test
 ├── api/
 │   ├── main.py                    # Point d'entrée FastAPI
-│   ├── routes/                    # Routes de l'API
-│   └── schemas/                   # Schémas Pydantic
+│   ├── routes/
+│   │   └── predict.py             # Routes de prédiction + monitoring
+│   └── schemas/
+│       └── client.py              # Schémas Pydantic
 ├── .env                           # Variables d'environnement
 ├── etl.py                         # Import CSV → PostgreSQL
 ├── test_mlflow.py                 # Test de journalisation MLFlow
@@ -49,7 +53,9 @@ backend/
 ```
 PostgreSQL
 ├── mlflow_db        ← MLFlow (runs, métriques, expériences)
-└── score_credit_db  ← Données métier (application_train)
+└── score_credit_db  ← Données métier
+    ├── application_train  ← Dataset original (307k lignes)
+    └── predictions        ← Historique des prédictions en production
 ```
 
 ## Installation
@@ -90,48 +96,20 @@ mlflow server --backend-store-uri postgresql://postgres:motdepasse@localhost:543
 
 ### 7. Lancer l'API
 ```bash
-uvicorn api.main:app --reload
-```
-
-## Résultats des modèles
-
-| Modèle | AUC-ROC | Score Métier |
-|--------|---------|--------------|
-| Baseline (Dummy) | 0.5000 | 49 650 |
-| Logistic Regression | 0.7154 | 48 534 |
-| Random Forest | 0.6953 | 46 864 |
-| **XGBoost** ✅ | **0.7294** | **35 289** |
-
-**XGBoost** est le modèle retenu pour la production.
-
-## Score Métier
-Dans le contexte du scoring crédit :
-- **Faux Négatif (FN)** : accorder un crédit à un mauvais payeur → coût = 10
-- **Faux Positif (FP)** : refuser un crédit à un bon payeur → coût = 1
-- **Formule** : `Score = (10 × FN) + (1 × FP)` — à minimiser
-
-## Top Features (SHAP)
-1. NAME_INCOME_TYPE_Working (16.3%)
-2. NAME_EDUCATION_TYPE_Secondary (13.0%)
-3. EXT_SOURCE_3 (12.3%)
-4. NAME_INCOME_TYPE_Commercial associate (11.7%)
-5. EXT_SOURCE_2 (9.1%)
-
-## API FastAPI
-
-### Lancer l'API
-```bash
-cd backend
-venv\Scripts\activate
 uvicorn api.main:app --reload --port 8000
 ```
 
-### Endpoints
+## API Endpoints
+
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
 | GET | `/` | Health check |
 | GET | `/api/health` | Statut du modèle |
-| POST | `/api/predict` | Prédiction du score de crédit |
+| POST | `/api/predict` | Prédiction + SHAP + Explication |
+| GET | `/api/historique` | Historique des prédictions |
+| GET | `/api/stats` | Statistiques globales |
+| GET | `/api/mlflow-runs` | Runs MLFlow (dédupliqués) |
+| GET | `/api/drift-stats` | Analyse du data drift |
 
 ### Documentation interactive
 👉 http://127.0.0.1:8000/docs
@@ -163,18 +141,51 @@ uvicorn api.main:app --reload --port 8000
   "probabilite_defaut": 17.25,
   "decision": "ACCORDÉ",
   "niveau_risque": "FAIBLE",
-  "score_metier": 1.0
+  "score_metier": 1.0,
+  "shap_features": [...],
+  "explication": "✅ Le crédit a été accordé grâce aux facteurs suivants..."
 }
 ```
 
+## Résultats des modèles
+
+| Modèle | AUC-ROC | Score Métier |
+|--------|---------|--------------|
+| Baseline (Dummy) | 0.5000 | 49 650 |
+| Logistic Regression | 0.7154 | 48 534 |
+| Random Forest | 0.6953 | 46 864 |
+| **XGBoost** ✅ | **0.7294** | **35 289** |
+
+**XGBoost** est le modèle retenu pour la production.
+
+## Score Métier
+Dans le contexte du scoring crédit :
+- **Faux Négatif (FN)** : accorder un crédit à un mauvais payeur → coût = 10
+- **Faux Positif (FP)** : refuser un crédit à un bon payeur → coût = 1
+- **Formule** : `Score = (10 × FN) + (1 × FP)` — à minimiser
+
+## Top Features SHAP
+1. Niveau d'études secondaires (57.0%)
+2. Téléphone professionnel (54.9%)
+3. Type de revenu : Salarié (45.7%)
+4. Densité de population régionale (42.6%)
+5. Demandes bureau crédit (1 an) (42.4%)
+
+## Analyse Data Drift
+| Feature | Référence | Production | Écart | Statut |
+|---------|-----------|------------|-------|--------|
+| Revenu annuel | 167 652 FCFA | 150 000 FCFA | 10.5% | 🟢 NORMAL |
+| Montant crédit | 595 257 FCFA | 500 000 FCFA | 16.0% | 🟢 NORMAL |
+| Mensualité | 26 987 FCFA | 25 000 FCFA | 7.4% | 🟢 NORMAL |
+
 ## Étapes MLOps complétées
 - [x] Étape 1 — Environnement MLFlow + PostgreSQL
-- [x] Étape 2 — Préparation des données
-- [x] Étape 3 — Score métier
-- [x] Étape 4 — Entraînement et comparaison des modèles
+- [x] Étape 2 — Préparation des données (SMOTE, feature engineering)
+- [x] Étape 3 — Score métier (FP/FN)
+- [x] Étape 4 — Entraînement et comparaison des modèles + SHAP
 - [x] Étape 5 — Déploiement API FastAPI
-- [ ] Étape 6 — Interface React
-- [ ] Étape 7 — Data drift + soutenance
+- [x] Étape 6 — Interface React + Dashboard
+- [x] Étape 7 — Data Drift + Evidently
 
 ## Auteur
 **KOMHIDI Jean Jacques** — Master 2 UCAO

@@ -116,7 +116,6 @@ def generer_explication(decision, shap_features, client_dict):
 
     risque = [f for f in shap_features if f["direction"] == "risque"][:3]
     protection = [f for f in shap_features if f["direction"] == "protection"][:3]
-
     lignes = []
 
     if decision == "REFUSÉ":
@@ -189,7 +188,6 @@ def predict(client: ClientData):
 
     explication = generer_explication(decision, shap_features, client_dict)
 
-    # Sauvegarder dans PostgreSQL
     if db_engine:
         try:
             with db_engine.connect() as conn:
@@ -298,3 +296,98 @@ def stats():
 @router.get("/health")
 def health():
     return {"status": "OK", "model_loaded": model is not None}
+
+
+@router.get("/mlflow-runs")
+def mlflow_runs():
+    try:
+        import mlflow
+        mlflow.set_tracking_uri("http://127.0.0.1:5000")
+        client = mlflow.tracking.MlflowClient()
+
+        experiments = client.search_experiments()
+        seen_models = {}
+
+        for exp in experiments:
+            runs = client.search_runs(
+                experiment_ids=[exp.experiment_id],
+                order_by=["metrics.auc_roc DESC"],
+                max_results=20
+            )
+            for run in runs:
+                modele = run.data.params.get("model", "N/A")
+                auc = run.data.metrics.get("auc_roc", 0)
+                score = run.data.metrics.get("score_metier", 0)
+
+                # Garder seulement si AUC > 0 et meilleur run par modèle
+                if auc > 0 and (modele not in seen_models or auc > seen_models[modele]["auc_roc"]):
+                    seen_models[modele] = {
+                        "run_id": run.info.run_id[:8],
+                        "nom": run.data.tags.get("mlflow.runName", modele),
+                        "modele": modele,
+                        "auc_roc": round(auc, 4),
+                        "score_metier": score,
+                        "statut": "✅ Terminé"
+                    }
+
+        # Trier par AUC-ROC décroissant
+        runs_data = sorted(seen_models.values(), key=lambda x: x["auc_roc"], reverse=True)
+        return runs_data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift-stats")
+def drift_stats():
+    try:
+        engine = create_engine('postgresql://postgres:postgres123@localhost:5432/score_credit_db')
+
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT
+                    AVG(revenu) as moy_revenu,
+                    AVG(credit) as moy_credit,
+                    AVG(annuite) as moy_annuite,
+                    COUNT(*) as total
+                FROM predictions
+            """))
+            row = result.fetchone()
+
+        ref_stats = {
+            "revenu": 167652,
+            "credit": 595257,
+            "annuite": 26987
+        }
+
+        prod_stats = {
+            "revenu": float(row[0]) if row[0] else 0,
+            "credit": float(row[1]) if row[1] else 0,
+            "annuite": float(row[2]) if row[2] else 0,
+        }
+
+        features = [
+            {"feature": "Revenu annuel", "ref": ref_stats["revenu"], "prod": prod_stats["revenu"]},
+            {"feature": "Montant crédit", "ref": ref_stats["credit"], "prod": prod_stats["credit"]},
+            {"feature": "Mensualité", "ref": ref_stats["annuite"], "prod": prod_stats["annuite"]},
+        ]
+
+        drift_results = []
+        for f in features:
+            ecart = abs(f["prod"] - f["ref"]) / f["ref"] * 100 if f["ref"] > 0 else 0
+            statut = "CRITIQUE" if ecart > 40 else "ALERTE" if ecart > 20 else "NORMAL"
+            drift_results.append({
+                "feature": f["feature"],
+                "ref_mean": round(f["ref"], 0),
+                "prod_mean": round(f["prod"], 0),
+                "ecart_pct": round(ecart, 1),
+                "statut": statut
+            })
+
+        return {
+            "total_predictions": int(row[3]) if row[3] else 0,
+            "drift_features": drift_results,
+            "statut_global": "NORMAL" if all(d["statut"] == "NORMAL" for d in drift_results) else "ALERTE"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
