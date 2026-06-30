@@ -81,10 +81,20 @@ export default function ScoreForm({ onSubmit, loading }) {
       return
     }
 
+    // IMPORTANT : éviter ancienneté = 0 exactement.
+    // Dans le dataset d'entraînement, DAYS_EMPLOYED = 0 déclenche
+    // DAYS_EMPLOYED_ANOMALY = 1, qui signifie historiquement "client retraité"
+    // (valeur 365243 remplacée par 0 lors du nettoyage), donc un profil
+    // statistiquement plutôt fiable. Si on laisse passer 0 pour signifier
+    // "vient de commencer à travailler", le modèle interprète à tort ce
+    // client comme un retraité fiable, ce qui fausse complètement la
+    // prédiction (effet inverse de l'intention).
+    const ancienneteAjustee = formData.anciennete === 0 ? 0.1 : formData.anciennete
+
     const payload = {
       ...formData,
       DAYS_BIRTH: formData.age * -365,
-      DAYS_EMPLOYED: formData.anciennete * -365,
+      DAYS_EMPLOYED: Math.round(ancienneteAjustee * -365),
     }
     delete payload.age
     delete payload.anciennete
@@ -206,9 +216,12 @@ export default function ScoreForm({ onSubmit, loading }) {
           <div>
             <label className={labelClass}>Ancienneté (années)</label>
             <input type="number" name="anciennete" value={formData.anciennete}
-              onChange={handleChange} onBlur={handleBlur} min="0" max="50"
+              onChange={handleChange} onBlur={handleBlur} min="0" max="50" step="0.5"
               className={getInputClass("anciennete")} />
             <FieldError field="anciennete" />
+            <p className={`text-[10px] mt-1 ${isDark ? "text-zinc-600" : "text-gray-400"}`}>
+              0 = vient de commencer (converti automatiquement en 0.1 an)
+            </p>
           </div>
           <div>
             <label className={labelClass}>Revenu annuel (FCFA)</label>

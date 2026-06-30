@@ -12,6 +12,7 @@ const featureLabels = {
   YEARS_EMPLOYED: "Ancienneté professionnelle",
   AMT_CREDIT: "Montant du crédit",
   AMT_INCOME_TOTAL: "Revenu annuel",
+  AMT_GOODS_PRICE: "Prix du bien",
   AMT_ANNUITY: "Mensualité",
   CNT_CHILDREN: "Nombre d'enfants",
   CODE_GENDER_M: "Genre",
@@ -36,8 +37,8 @@ const featureLabels = {
   AMT_REQ_CREDIT_BUREAU_WEEK: "Demandes bureau crédit (semaine)",
   AMT_REQ_CREDIT_BUREAU_DAY: "Demandes bureau crédit (jour)",
   AMT_REQ_CREDIT_BUREAU_HOUR: "Demandes bureau crédit (heure)",
-  DAYS_BIRTH: "Âge en jours",
-  DAYS_EMPLOYED: "Ancienneté en jours",
+  DAYS_BIRTH: "Âge du client",
+  DAYS_EMPLOYED: "Ancienneté professionnelle",
   DAYS_REGISTRATION: "Jours depuis enregistrement",
   DAYS_ID_PUBLISH: "Jours depuis publication ID",
   DAYS_LAST_PHONE_CHANGE: "Jours depuis changement téléphone",
@@ -64,6 +65,8 @@ const featureLabels = {
   WEEKDAY_APPR_PROCESS_START_FRIDAY: "Demande le vendredi",
   WEEKDAY_APPR_PROCESS_START_SATURDAY: "Demande le samedi",
   WEEKDAY_APPR_PROCESS_START_SUNDAY: "Demande le dimanche",
+  NAME_TYPE_SUITE_Unaccompanied: "Demande non accompagnée",
+  NAME_TYPE_SUITE_Family: "Demande accompagnée (famille)",
 }
 
 const getLabel = (feature) => {
