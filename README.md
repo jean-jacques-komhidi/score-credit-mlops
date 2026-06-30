@@ -102,7 +102,8 @@ venv\Scripts\activate      # Windows
 source venv/bin/activate   # Linux/Mac
 
 # Terminal 1 — MLFlow
-mlflow server --backend-store-uri postgresql://postgres:motdepasse@localhost:5432/mlflow_db --default-artifact-root mlflow-artifacts: --host 127.0.0.1 --port 5000
+mlflow server --backend-store-uri postgresql://postgres:postgres123@localhost:5432/mlflow_db --default-artifact-root 
+mlflow-artifacts: --host 127.0.0.1 --port 5000
 
 # Terminal 2 — API FastAPI
 uvicorn api.main:app --reload --port 8000

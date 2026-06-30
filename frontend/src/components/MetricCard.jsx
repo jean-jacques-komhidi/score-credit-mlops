@@ -1,49 +1,43 @@
 import { useTheme } from "../context/ThemeContext"
-import { TrendingUp, TrendingDown } from "lucide-react"
 
-export default function MetricCard({ title, value, subtitle, icon: Icon, color, trend, trendValue }) {
+export default function MetricCard({ title, value, subtitle, icon: Icon, color, badge }) {
   const { isDark } = useTheme()
 
   const colorMap = {
-    blue: "bg-blue-50 text-blue-600 dark:bg-blue-900/20",
-    green: "bg-green-50 text-green-600 dark:bg-green-900/20",
-    red: "bg-red-50 text-red-600 dark:bg-red-900/20",
-    orange: "bg-orange-50 text-orange-600 dark:bg-orange-900/20",
+    blue: { bg: isDark ? "bg-blue-500/15" : "bg-blue-50", text: isDark ? "text-blue-400" : "text-blue-600" },
+    green: { bg: isDark ? "bg-green-500/15" : "bg-green-50", text: isDark ? "text-green-400" : "text-green-600" },
+    red: { bg: isDark ? "bg-red-500/15" : "bg-red-50", text: isDark ? "text-red-400" : "text-red-600" },
+    orange: { bg: isDark ? "bg-orange-500/15" : "bg-orange-50", text: isDark ? "text-orange-400" : "text-orange-600" },
   }
+  const c = colorMap[color] || colorMap.blue
 
   return (
-    <div className={`rounded-2xl p-5 shadow-sm border transition-colors duration-300
-      ${isDark
-        ? "bg-slate-800 border-slate-700"
-        : "bg-white border-gray-100"}`}>
+    <div className={`rounded-2xl p-4 border flex items-center gap-3 transition-colors
+      ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm"}`}>
 
-      {/* Header card */}
-      <div className="flex items-center justify-between mb-4">
-        <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-          {title}
-        </p>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorMap[color]}`}>
-          <Icon size={20} />
-        </div>
+      {/* Icône */}
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}>
+        <Icon size={20} className={c.text} />
       </div>
 
-      {/* Valeur principale */}
-      <p className={`text-2xl font-bold mb-1 ${isDark ? "text-white" : "text-gray-800"}`}>
-        {value}
-      </p>
-
-      {/* Sous-titre + trend */}
-      <div className="flex items-center gap-2">
-        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+      {/* Contenu */}
+      <div className="min-w-0 flex-1">
+        <p className={`text-xs font-medium truncate ${isDark ? "text-zinc-500" : "text-gray-500"}`}>
+          {title}
+        </p>
+        <div className="flex items-baseline gap-2">
+          <p className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+            {value}
+          </p>
+          {badge && (
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${c.bg} ${c.text}`}>
+              {badge}
+            </span>
+          )}
+        </div>
+        <p className={`text-[11px] truncate ${isDark ? "text-zinc-600" : "text-gray-400"}`}>
           {subtitle}
         </p>
-        {trendValue && (
-          <div className={`flex items-center gap-1 text-xs font-medium
-            ${trend === "up" ? "text-green-500" : "text-red-500"}`}>
-            {trend === "up" ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {trendValue}
-          </div>
-        )}
       </div>
     </div>
   )

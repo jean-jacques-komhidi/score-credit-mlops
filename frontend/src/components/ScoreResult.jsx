@@ -1,61 +1,117 @@
+// ScoreResult.jsx
+import { useTheme } from "../context/ThemeContext"
+import { CheckCircle2, XCircle, TrendingDown, TrendingUp } from "lucide-react"
+
 export default function ScoreResult({ result }) {
-  const getColor = (niveau) => {
-    switch (niveau) {
-      case "FAIBLE": return "text-green-600 bg-green-50 border-green-200"
-      case "MODÉRÉ": return "text-yellow-600 bg-yellow-50 border-yellow-200"
-      case "ÉLEVÉ": return "text-orange-600 bg-orange-50 border-orange-200"
-      case "TRÈS ÉLEVÉ": return "text-red-600 bg-red-50 border-red-200"
-      default: return "text-gray-600"
-    }
+  const { isDark } = useTheme()
+  const isAccorde = result.decision === "ACCORDÉ"
+
+  const riskConfig = {
+    FAIBLE: { color: "green", label: "FAIBLE" },
+    "MODÉRÉ": { color: "yellow", label: "MODÉRÉ" },
+    "ÉLEVÉ": { color: "orange", label: "ÉLEVÉ" },
+    "TRÈS ÉLEVÉ": { color: "red", label: "TRÈS ÉLEVÉ" },
   }
 
-  const getDecisionColor = (decision) => {
-    return decision === "ACCORDÉ"
-      ? "text-green-700 bg-green-100 border-green-300"
-      : "text-red-700 bg-red-100 border-red-300"
+  const risk = riskConfig[result.niveau_risque] || riskConfig.FAIBLE
+
+  const colorMapLight = {
+    green: { bg: "bg-green-50", border: "border-green-200", text: "text-green-700", bar: "bg-green-500" },
+    yellow: { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-700", bar: "bg-yellow-500" },
+    orange: { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", bar: "bg-orange-500" },
+    red: { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", bar: "bg-red-500" },
   }
+  const colorMapDark = {
+    green: { bg: "bg-green-500/10", border: "border-green-500/30", text: "text-green-400", bar: "bg-green-500" },
+    yellow: { bg: "bg-yellow-500/10", border: "border-yellow-500/30", text: "text-yellow-400", bar: "bg-yellow-500" },
+    orange: { bg: "bg-orange-500/10", border: "border-orange-500/30", text: "text-orange-400", bar: "bg-orange-500" },
+    red: { bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-400", bar: "bg-red-500" },
+  }
+  const rc = isDark ? colorMapDark[risk.color] : colorMapLight[risk.color]
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mt-6">
-      <h2 className="text-xl font-bold text-gray-700 mb-4">📊 Résultat de l'analyse</h2>
+    <div className={`rounded-2xl border overflow-hidden transition-colors
+      ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm"}`}>
 
-      {/* Décision */}
-      <div className={`border-2 rounded-xl p-4 mb-4 text-center ${getDecisionColor(result.decision)}`}>
-        <p className="text-3xl font-bold">{result.decision === "ACCORDÉ" ? "✅" : "❌"} {result.decision}</p>
+      {/* Header */}
+      <div className={`px-6 py-4 border-b ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
+        <h2 className={`font-bold text-base ${isDark ? "text-white" : "text-gray-800"}`}>
+          Résultat de l'analyse
+        </h2>
       </div>
 
-      {/* Métriques */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-50 rounded-xl p-4 text-center">
-          <p className="text-sm text-gray-500">Probabilité de défaut</p>
-          <p className="text-2xl font-bold text-gray-800">{result.probabilite_defaut}%</p>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 text-center">
-          <p className="text-sm text-gray-500">Score de risque</p>
-          <p className="text-2xl font-bold text-gray-800">{result.score}</p>
-        </div>
-      </div>
+      <div className="p-6">
 
-      {/* Niveau de risque */}
-      <div className={`border rounded-xl p-3 text-center ${getColor(result.niveau_risque)}`}>
-        <p className="text-sm font-medium">Niveau de risque</p>
-        <p className="text-xl font-bold">{result.niveau_risque}</p>
-      </div>
-
-      {/* Barre de progression */}
-      <div className="mt-4">
-        <p className="text-sm text-gray-500 mb-1">Risque de défaut</p>
-        <div className="w-full bg-gray-200 rounded-full h-4">
-          <div
-            className={`h-4 rounded-full transition-all ${
-              result.probabilite_defaut < 20 ? "bg-green-500" :
-              result.probabilite_defaut < 50 ? "bg-yellow-500" :
-              result.probabilite_defaut < 70 ? "bg-orange-500" : "bg-red-500"
-            }`}
-            style={{ width: `${result.probabilite_defaut}%` }}
-          />
+        {/* Décision — bandeau principal */}
+        <div className={`rounded-2xl p-5 mb-5 flex items-center justify-center gap-3 border
+          ${isAccorde
+            ? isDark ? "bg-green-500/10 border-green-500/30" : "bg-green-50 border-green-200"
+            : isDark ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"}`}>
+          {isAccorde
+            ? <CheckCircle2 size={28} className={isDark ? "text-green-400" : "text-green-600"} />
+            : <XCircle size={28} className={isDark ? "text-red-400" : "text-red-600"} />
+          }
+          <span className={`text-2xl font-bold tracking-wide
+            ${isAccorde
+              ? isDark ? "text-green-400" : "text-green-700"
+              : isDark ? "text-red-400" : "text-red-700"}`}>
+            {result.decision}
+          </span>
         </div>
-        <p className="text-xs text-gray-400 mt-1">{result.probabilite_defaut}%</p>
+
+        {/* Métriques */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className={`rounded-xl p-4 ${isDark ? "bg-zinc-800" : "bg-gray-50"}`}>
+            <p className={`text-xs font-medium mb-1 ${isDark ? "text-zinc-500" : "text-gray-500"}`}>
+              Probabilité de défaut
+            </p>
+            <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              {result.probabilite_defaut}%
+            </p>
+          </div>
+          <div className={`rounded-xl p-4 ${isDark ? "bg-zinc-800" : "bg-gray-50"}`}>
+            <p className={`text-xs font-medium mb-1 ${isDark ? "text-zinc-500" : "text-gray-500"}`}>
+              Score de risque
+            </p>
+            <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+              {result.score}
+            </p>
+          </div>
+        </div>
+
+        {/* Niveau de risque */}
+        <div className={`rounded-xl p-4 mb-5 border ${rc.bg} ${rc.border}`}>
+          <div className="flex items-center justify-between">
+            <p className={`text-xs font-semibold uppercase tracking-wider ${rc.text}`}>
+              Niveau de risque
+            </p>
+            {risk.color === "green"
+              ? <TrendingDown size={16} className={rc.text} />
+              : <TrendingUp size={16} className={rc.text} />
+            }
+          </div>
+          <p className={`text-xl font-bold mt-1 ${rc.text}`}>
+            {risk.label}
+          </p>
+        </div>
+
+        {/* Barre de progression */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className={`text-xs font-medium ${isDark ? "text-zinc-500" : "text-gray-500"}`}>
+              Risque de défaut
+            </p>
+            <p className={`text-xs font-bold ${rc.text}`}>
+              {result.probabilite_defaut}%
+            </p>
+          </div>
+          <div className={`w-full h-2.5 rounded-full ${isDark ? "bg-zinc-800" : "bg-gray-100"}`}>
+            <div
+              className={`h-2.5 rounded-full transition-all duration-700 ${rc.bar}`}
+              style={{ width: `${Math.min(result.probabilite_defaut, 100)}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

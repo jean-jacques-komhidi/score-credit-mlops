@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, HTTPException
 from api.schemas.client import ClientData
 import pickle
@@ -5,6 +7,7 @@ import numpy as np
 import pandas as pd
 import shap
 from sqlalchemy import create_engine, text
+from fastapi.responses import FileResponse
 
 router = APIRouter()
 
@@ -444,3 +447,11 @@ def actions_log():
             ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift-report")
+def drift_report():
+    report_path = "data/rapport_drift.html"
+    if os.path.exists(report_path):
+        return FileResponse(report_path, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Rapport non trouvé. Générez-le d'abord depuis le notebook 04_data_drift.ipynb")

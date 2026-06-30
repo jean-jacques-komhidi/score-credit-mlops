@@ -79,12 +79,12 @@ export default function ShapChart({ result }) {
 
   return (
     <div className={`rounded-2xl border overflow-hidden transition-colors
-      ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100 shadow-sm"}`}>
+      ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm"}`}>
 
       {/* Header */}
       <div className={`px-6 py-4 border-b flex items-center gap-2
-        ${isDark ? "border-slate-700" : "border-gray-100"}`}>
-        <Info size={18} className="text-blue-600" />
+        ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
+        <Info size={18} className={isDark ? "text-blue-400" : "text-blue-600"} />
         <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
           Explication de la décision
         </h3>
@@ -92,14 +92,14 @@ export default function ShapChart({ result }) {
 
       {/* Explication texte naturel */}
       <div className={`px-6 py-4 border-b text-sm leading-relaxed whitespace-pre-line
-        ${isDark ? "border-slate-700 text-slate-300 bg-slate-900/50" : "border-gray-100 text-gray-600 bg-gray-50"}`}>
+        ${isDark ? "border-zinc-800 text-zinc-300 bg-zinc-950/50" : "border-gray-100 text-gray-600 bg-gray-50"}`}>
         {result.explication}
       </div>
 
       {/* Graphique SHAP */}
       <div className="px-6 py-5">
         <p className={`text-xs font-semibold uppercase tracking-wider mb-5
-          ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+          ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
           Impact des facteurs sur la décision
         </p>
 
@@ -117,7 +117,7 @@ export default function ShapChart({ result }) {
                       ? <TrendingUp size={14} className="text-red-500 flex-shrink-0" />
                       : <TrendingDown size={14} className="text-green-500 flex-shrink-0" />
                     }
-                    <span className={`text-xs font-medium ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                    <span className={`text-xs font-medium ${isDark ? "text-zinc-300" : "text-gray-700"}`}>
                       {label}
                     </span>
                   </div>
@@ -128,7 +128,7 @@ export default function ShapChart({ result }) {
                 </div>
 
                 {/* Barre de progression */}
-                <div className={`w-full h-2 rounded-full ${isDark ? "bg-slate-700" : "bg-gray-100"}`}>
+                <div className={`w-full h-2 rounded-full ${isDark ? "bg-zinc-800" : "bg-gray-100"}`}>
                   <div
                     className={`h-2 rounded-full transition-all duration-700
                       ${isRisk ? "bg-red-500" : "bg-green-500"}`}
@@ -136,7 +136,7 @@ export default function ShapChart({ result }) {
                   />
                 </div>
 
-                <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
+                <p className={`text-xs mt-1 ${isDark ? "text-zinc-600" : "text-gray-400"}`}>
                   {isRisk ? "↑ Augmente le risque de défaut" : "↓ Réduit le risque de défaut"}
                 </p>
               </div>
