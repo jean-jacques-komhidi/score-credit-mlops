@@ -1,7 +1,31 @@
+import { useEffect, useState } from "react"
 import { useTheme } from "../context/ThemeContext"
 
-export default function MetricCard({ title, value, subtitle, icon: Icon, color, badge }) {
+function useCountUp(target, duration = 1000) {
+  const [display, setDisplay] = useState(0)
+
+  useEffect(() => {
+    if (target === null || target === undefined) return
+    const num = parseFloat(target)
+    if (isNaN(num)) return
+
+    let startTime = null
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(num * eased * 10) / 10)
+      if (progress < 1) requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+  }, [target, duration])
+
+  return display
+}
+
+export default function MetricCard({ title, value, suffix = "", subtitle, icon: Icon, color, badge }) {
   const { isDark } = useTheme()
+  const animated = useCountUp(value)
 
   const colorMap = {
     blue: { bg: isDark ? "bg-blue-500/15" : "bg-blue-50", text: isDark ? "text-blue-400" : "text-blue-600" },
@@ -10,6 +34,18 @@ export default function MetricCard({ title, value, subtitle, icon: Icon, color, 
     orange: { bg: isDark ? "bg-orange-500/15" : "bg-orange-50", text: isDark ? "text-orange-400" : "text-orange-600" },
   }
   const c = colorMap[color] || colorMap.blue
+
+  // Si value est null/undefined → "..."
+  // Si value est un texte non numérique (ex: "N/A", "NORMAL") → afficher tel quel sans animation
+  const isNumeric = value !== null && value !== undefined && !isNaN(parseFloat(value))
+
+  const displayValue = value === null || value === undefined
+    ? "..."
+    : !isNumeric
+      ? value
+      : suffix
+        ? `${Number.isInteger(parseFloat(value)) ? Math.round(animated) : animated.toFixed(1)}${suffix}`
+        : Math.round(animated)
 
   return (
     <div className={`rounded-2xl p-4 border flex items-center gap-3 transition-colors
@@ -26,8 +62,8 @@ export default function MetricCard({ title, value, subtitle, icon: Icon, color, 
           {title}
         </p>
         <div className="flex items-baseline gap-2">
-          <p className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
-            {value}
+          <p className={`text-xl font-bold tabular-nums ${isDark ? "text-white" : "text-gray-800"}`}>
+            {displayValue}
           </p>
           {badge && (
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${c.bg} ${c.text}`}>

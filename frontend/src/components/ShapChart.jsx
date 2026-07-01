@@ -1,5 +1,6 @@
 import { useTheme } from "../context/ThemeContext"
 import { TrendingUp, TrendingDown, Info } from "lucide-react"
+import { useState, useEffect } from "react"
 
 const featureLabels = {
   EXT_SOURCE_3: "Score de solvabilité externe 3",
@@ -73,6 +74,86 @@ const getLabel = (feature) => {
   return featureLabels[feature] || feature.replace(/_/g, " ")
 }
 
+function ShapBar({ pct, isRisk, delay }) {
+  const [width, setWidth] = useState(0)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(true), delay)
+    const t2 = setTimeout(() => setWidth(pct), delay + 100)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [pct, delay])
+
+  const barStyle = {
+    width: width + "%",
+    transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)"
+  }
+
+  const itemStyle = {
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateX(0)" : "translateX(-12px)",
+    transition: "opacity 0.4s ease " + delay + "ms, transform 0.4s ease " + delay + "ms"
+  }
+
+  return { barStyle, itemStyle }
+}
+
+function ShapItem({ f, i, maxImpact, isDark }) {
+  const label = getLabel(f.feature)
+  const pct = (Math.abs(f.impact) / maxImpact) * 100
+  const isRisk = f.direction === "risque"
+  const delay = i * 100
+
+  const [barWidth, setBarWidth] = useState(0)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(true), delay)
+    const t2 = setTimeout(() => setBarWidth(pct), delay + 150)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [pct, delay])
+
+  const itemStyle = {
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateX(0)" : "translateX(-12px)",
+    transition: "opacity 0.4s ease " + delay + "ms, transform 0.4s ease " + delay + "ms"
+  }
+
+  const barStyle = {
+    width: barWidth + "%",
+    transition: "width 0.9s cubic-bezier(0.4, 0, 0.2, 1)"
+  }
+
+  const labelClass = "text-xs font-medium " + (isDark ? "text-zinc-300" : "text-gray-700")
+  const valueClass = "text-xs font-bold ml-2 flex-shrink-0 " + (isRisk ? "text-red-500" : "text-green-500")
+  const trackClass = "w-full h-2 rounded-full " + (isDark ? "bg-zinc-800" : "bg-gray-100")
+  const barClass = "h-2 rounded-full " + (isRisk ? "bg-red-500" : "bg-green-500")
+  const descClass = "text-xs mt-1 " + (isDark ? "text-zinc-600" : "text-gray-400")
+
+  return (
+    <div style={itemStyle}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          {isRisk
+            ? <TrendingUp size={14} className="text-red-500 flex-shrink-0" />
+            : <TrendingDown size={14} className="text-green-500 flex-shrink-0" />
+          }
+          <span className={labelClass}>{label}</span>
+        </div>
+        <span className={valueClass}>
+          {isRisk ? "+" : ""}{(f.impact * 100).toFixed(1)}%
+        </span>
+      </div>
+      <div className={trackClass}>
+        <div style={barStyle} className={barClass} />
+      </div>
+      <p className={descClass}>
+        {isRisk ? "↑ Augmente le risque de défaut" : "↓ Réduit le risque de défaut"}
+      </p>
+    </div>
+  )
+}
+
 export default function ShapChart({ result }) {
   const { isDark } = useTheme()
 
@@ -80,71 +161,36 @@ export default function ShapChart({ result }) {
 
   const maxImpact = Math.max(...result.shap_features.map(f => Math.abs(f.impact)))
 
-  return (
-    <div className={`rounded-2xl border overflow-hidden transition-colors
-      ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm"}`}>
+  const containerClass = "rounded-2xl border overflow-hidden transition-colors " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
+  const headerClass = "px-6 py-4 border-b flex items-center gap-2 " + (isDark ? "border-zinc-800" : "border-gray-100")
+  const titleClass = "font-bold " + (isDark ? "text-white" : "text-gray-800")
+  const explClass = "px-6 py-4 border-b text-sm leading-relaxed whitespace-pre-line " + (isDark ? "border-zinc-800 text-zinc-300 bg-zinc-950/50" : "border-gray-100 text-gray-600 bg-gray-50")
+  const sectionClass = "text-xs font-semibold uppercase tracking-wider mb-5 " + (isDark ? "text-zinc-500" : "text-gray-400")
 
-      {/* Header */}
-      <div className={`px-6 py-4 border-b flex items-center gap-2
-        ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
+  return (
+    <div className={containerClass}>
+
+      <div className={headerClass}>
         <Info size={18} className={isDark ? "text-blue-400" : "text-blue-600"} />
-        <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
-          Explication de la décision
-        </h3>
+        <h3 className={titleClass}>Explication de la décision</h3>
       </div>
 
-      {/* Explication texte naturel */}
-      <div className={`px-6 py-4 border-b text-sm leading-relaxed whitespace-pre-line
-        ${isDark ? "border-zinc-800 text-zinc-300 bg-zinc-950/50" : "border-gray-100 text-gray-600 bg-gray-50"}`}>
+      <div className={explClass}>
         {result.explication}
       </div>
 
-      {/* Graphique SHAP */}
       <div className="px-6 py-5">
-        <p className={`text-xs font-semibold uppercase tracking-wider mb-5
-          ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
-          Impact des facteurs sur la décision
-        </p>
-
+        <p className={sectionClass}>Impact des facteurs sur la décision</p>
         <div className="space-y-4">
-          {result.shap_features.map((f, i) => {
-            const label = getLabel(f.feature)
-            const pct = (Math.abs(f.impact) / maxImpact) * 100
-            const isRisk = f.direction === "risque"
-
-            return (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    {isRisk
-                      ? <TrendingUp size={14} className="text-red-500 flex-shrink-0" />
-                      : <TrendingDown size={14} className="text-green-500 flex-shrink-0" />
-                    }
-                    <span className={`text-xs font-medium ${isDark ? "text-zinc-300" : "text-gray-700"}`}>
-                      {label}
-                    </span>
-                  </div>
-                  <span className={`text-xs font-bold ml-2 flex-shrink-0
-                    ${isRisk ? "text-red-500" : "text-green-500"}`}>
-                    {isRisk ? "+" : ""}{(f.impact * 100).toFixed(1)}%
-                  </span>
-                </div>
-
-                {/* Barre de progression */}
-                <div className={`w-full h-2 rounded-full ${isDark ? "bg-zinc-800" : "bg-gray-100"}`}>
-                  <div
-                    className={`h-2 rounded-full transition-all duration-700
-                      ${isRisk ? "bg-red-500" : "bg-green-500"}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-
-                <p className={`text-xs mt-1 ${isDark ? "text-zinc-600" : "text-gray-400"}`}>
-                  {isRisk ? "↑ Augmente le risque de défaut" : "↓ Réduit le risque de défaut"}
-                </p>
-              </div>
-            )
-          })}
+          {result.shap_features.map((f, i) => (
+            <ShapItem
+              key={i}
+              f={f}
+              i={i}
+              maxImpact={maxImpact}
+              isDark={isDark}
+            />
+          ))}
         </div>
       </div>
     </div>
