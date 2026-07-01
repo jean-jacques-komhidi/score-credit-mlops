@@ -7,12 +7,50 @@ des données jusqu'au déploiement en production avec monitoring du data drift.
 
 [![CI/CD](https://github.com/jean-jacques-komhidi/score-credit-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/jean-jacques-komhidi/score-credit-mlops/actions/workflows/ci.yml)
 
+---
+
+## Aperçu de l'interface
+
+### Tableau de bord — KPIs et graphiques
+![Tableau de bord](docs/screenshots/screenshot_dashboard.png)
+
+### Historique des analyses
+![Historique](docs/screenshots/screenshot_historique.png)
+
+### Analyse de dossier — Formulaire et résultat
+![Analyse formulaire](docs/screenshots/screenshot_analyse_formulaire.png)
+
+### Analyse de dossier — Explication SHAP
+![Analyse SHAP](docs/screenshots/screenshot_analyse_shap.png)
+
+### Graphique SHAP détaillé
+![SHAP détaillé](docs/screenshots/screenshot_analyse_shap2.png)
+
+### Notifications système
+![Notifications](docs/screenshots/screenshot_notifications.png)
+
+### Monitoring — Runs MLFlow et Data Drift
+![Monitoring](docs/screenshots/screenshot_monitoring.png)
+
+### Paramètres — Profil utilisateur
+![Paramètres profil](docs/screenshots/screenshot_parametres_profil.png)
+
+### Paramètres — Seuils Data Drift
+![Paramètres drift](docs/screenshots/screenshot_parametres_drift.png)
+
+### Paramètres — Configuration API
+![Paramètres API](docs/screenshots/screenshot_parametres_api.png)
+
+---
+
 ## Dataset
 **Home Credit Default Risk** (Kaggle)
 - ~307 000 clients
 - 122 features
 - Cible binaire : `TARGET` (1 = défaut de paiement, 0 = remboursement normal)
 - Déséquilibre : 91.9% classe 0 / 8.1% classe 1
+
+---
 
 ## Architecture du projet
 ```
@@ -28,12 +66,12 @@ Score_Credit/
 │   │   └── 04_data_drift.ipynb
 │   ├── models/
 │   │   ├── best_xgb.pkl
-│   │   └── feature_columns.pkl
+│   │   ├── feature_columns.pkl
+│   │   └── feature_medians.pkl
 │   ├── api/
 │   │   ├── main.py
 │   │   ├── routes/predict.py
 │   │   └── schemas/client.py
-│   ├── etl.py
 │   ├── requirements.txt
 │   └── README.md
 │
@@ -47,23 +85,33 @@ Score_Credit/
 │   │   │   ├── ScoreResult.jsx
 │   │   │   └── ShapChart.jsx
 │   │   ├── context/
-│   │   │   └── ThemeContext.jsx
+│   │   │   ├── ThemeContext.jsx
+│   │   │   ├── UserContext.jsx
+│   │   │   └── NotificationsContext.jsx
 │   │   ├── pages/
 │   │   │   ├── Dashboard.jsx
 │   │   │   ├── Analyse.jsx
-│   │   │   └── Monitoring.jsx
+│   │   │   ├── Monitoring.jsx
+│   │   │   ├── Notifications.jsx
+│   │   │   ├── Profil.jsx
+│   │   │   └── Parametres.jsx
 │   │   └── services/
 │   │       └── api.js
 │   ├── package.json
 │   └── README.md
 │
+├── docs/
+│   └── screenshots/            ← Captures d'écran de l'interface
+│
 ├── .github/
 │   └── workflows/
-│       └── ci.yml             ← CI/CD GitHub Actions ✅
+│       └── ci.yml             ← CI/CD GitHub Actions
 │
 ├── .gitignore
-└── README.md                  ← Ce fichier
+└── README.md
 ```
+
+---
 
 ## Architecture technique
 ```
@@ -71,7 +119,9 @@ Score_Credit/
 │                FRONTEND                      │
 │  React + Vite + Tailwind + Lucide React     │
 │  Dashboard | Analyse | Monitoring           │
-│  Mode jour/nuit | SHAP explicatif           │
+│  Notifications | Profil | Paramètres        │
+│  Mode jour/nuit | SHAP explicatif animé     │
+│  Graphiques Chart.js avec animations        │
 └──────────────────┬──────────────────────────┘
                    │ HTTP (Axios)
                    ▼
@@ -80,6 +130,7 @@ Score_Credit/
 │  FastAPI + Uvicorn (Port 8000)             │
 │  /predict | /historique | /stats           │
 │  /mlflow-runs | /drift-stats               │
+│  /drift-report | /actions-log              │
 └──────────────────┬──────────────────────────┘
                    │
         ┌──────────┴──────────┐
@@ -88,12 +139,20 @@ Score_Credit/
 │   MLFlow     │    │    PostgreSQL        │
 │   Port 5000  │    │  mlflow_db          │
 │   Tracking   │    │  score_credit_db    │
-│   Runs       │    │  - application_train│
-│   Métriques  │    │  - predictions      │
+│   Runs       │    │  - predictions      │
+│   Métriques  │    │  - actions_log      │
 └──────────────┘    └─────────────────────┘
 ```
 
+---
+
 ## Lancer le projet
+
+### Prérequis
+- Python 3.11
+- Node.js 18+
+- PostgreSQL 14+
+- MLFlow
 
 ### Backend
 ```bash
@@ -102,8 +161,10 @@ venv\Scripts\activate      # Windows
 source venv/bin/activate   # Linux/Mac
 
 # Terminal 1 — MLFlow
-mlflow server --backend-store-uri postgresql://postgres:postgres123@localhost:5432/mlflow_db --default-artifact-root 
-mlflow-artifacts: --host 127.0.0.1 --port 5000
+mlflow server \
+  --backend-store-uri postgresql://postgres:postgres123@localhost:5432/mlflow_db \
+  --default-artifact-root mlflow-artifacts: \
+  --host 127.0.0.1 --port 5000
 
 # Terminal 2 — API FastAPI
 uvicorn api.main:app --reload --port 8000
@@ -112,6 +173,7 @@ uvicorn api.main:app --reload --port 8000
 ### Frontend
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
@@ -123,6 +185,8 @@ npm run dev
 | Documentation API | http://localhost:8000/docs |
 | MLFlow UI | http://localhost:5000 |
 
+---
+
 ## Étapes MLOps
 
 | Étape | Description | Statut |
@@ -132,9 +196,11 @@ npm run dev
 | **Étape 3** | Score métier FP/FN | ✅ |
 | **Étape 4** | Entraînement XGBoost + SHAP | ✅ |
 | **Étape 5** | API FastAPI déployée | ✅ |
-| **Étape 6** | Interface React 3 pages | ✅ |
+| **Étape 6** | Interface React 6 pages | ✅ |
 | **Étape 7** | Data Drift + Evidently | ✅ |
 | **Bonus** | CI/CD GitHub Actions | ✅ |
+
+---
 
 ## Résultats des modèles
 
@@ -147,25 +213,50 @@ npm run dev
 
 **XGBoost** est le modèle retenu pour la production.
 
+---
+
 ## Score Métier
 Dans le contexte du scoring crédit :
 - **Faux Négatif (FN)** : accorder un crédit à un mauvais payeur → coût = 10
 - **Faux Positif (FP)** : refuser un crédit à un bon payeur → coût = 1
 - **Formule** : `Score = (10 × FN) + (1 × FP)` — à minimiser
 
+---
+
 ## Top Features SHAP
-1. Niveau d'études secondaires (57.0%)
-2. Téléphone professionnel (54.9%)
-3. Type de revenu : Salarié (45.7%)
-4. Densité de population régionale (42.6%)
-5. Demandes bureau crédit (1 an) (42.4%)
+
+| Rang | Feature | Importance |
+|------|---------|-----------|
+| 1 | Score solvabilité externe 2 | 43.5% |
+| 2 | Score solvabilité externe 3 | 64.7% |
+| 3 | Type de revenu : Salarié | 45.7% |
+| 4 | Possession d'une voiture | 49.5% |
+| 5 | Ancienneté professionnelle | 10.2% |
+
+---
 
 ## Analyse Data Drift
+
 | Feature | Référence | Production | Écart | Statut |
 |---------|-----------|------------|-------|--------|
-| Revenu annuel | 167 652 FCFA | 150 000 FCFA | 10.5% | 🟢 NORMAL |
-| Montant crédit | 595 257 FCFA | 500 000 FCFA | 16.0% | 🟢 NORMAL |
-| Mensualité | 26 987 FCFA | 25 000 FCFA | 7.4% | 🟢 NORMAL |
+| Revenu annuel | 167 652 FCFA | variable | <20% | 🟢 NORMAL |
+| Montant crédit | 595 257 FCFA | variable | <20% | 🟢 NORMAL |
+| Mensualité | 26 987 FCFA | variable | <20% | 🟢 NORMAL |
+
+---
+
+## Fonctionnalités de l'interface
+
+| Page | Fonctionnalités |
+|------|----------------|
+| **Tableau de bord** | KPIs animés, histogramme, camembert, courbe d'évolution, historique |
+| **Analyse** | Formulaire 5 sections, résultat ACCORDÉ/REFUSÉ, SHAP animé |
+| **Monitoring** | Runs MLFlow, Data Drift Evidently, rapport HTML |
+| **Notifications** | Historique des actions système en temps réel |
+| **Paramètres** | Profil utilisateur, seuils drift, configuration API |
+| **Mode sombre** | Thème noir complet sur toutes les pages |
+
+---
 
 ## CI/CD Pipeline
 ```
@@ -188,7 +279,10 @@ Push sur main
         └──────────────────┘
 ```
 
+---
+
 ## Auteur
-**KOMHIDI Jean Jacques** — Master 2 UCAO
-Encadrant : AIDARA CHAMSEDINE — Tech Lead Data & IA
-Année : 2025-2026
+**KOMHIDI Jean Jacques** — Master 2 UCAO  
+Encadrant : **AIDARA CHAMSEDINE** — Tech Lead Data & IA  
+Année : 2025-2026  
+GitHub : [jean-jacques-komhidi/score-credit-mlops](https://github.com/jean-jacques-komhidi/score-credit-mlops)
