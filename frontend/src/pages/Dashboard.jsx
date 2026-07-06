@@ -20,26 +20,28 @@ const RISK_LABELS = {
 function buildChartData(historique) {
   const moisMap = {}
   const riskCount = { FAIBLE: 0, "MODÉRÉ": 0, "ÉLEVÉ": 0, "TRÈS ÉLEVÉ": 0 }
-  const risqueParMois = {}
+  const risqueParJour = {}
 
   historique.forEach(item => {
     const date = new Date(item.date)
-    const key = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0")
-    const label = date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })
 
-    if (!moisMap[key]) moisMap[key] = { label, accordes: 0, refuses: 0 }
-    if (item.decision === "ACCORDÉ") moisMap[key].accordes++
-    else moisMap[key].refuses++
+    const moisKey = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0")
+    const moisLabel = date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })
+    if (!moisMap[moisKey]) moisMap[moisKey] = { label: moisLabel, accordes: 0, refuses: 0 }
+    if (item.decision === "ACCORDÉ") moisMap[moisKey].accordes++
+    else moisMap[moisKey].refuses++
 
     if (riskCount[item.niveau_risque] !== undefined) riskCount[item.niveau_risque]++
 
-    if (!risqueParMois[key]) risqueParMois[key] = { label, total: 0, count: 0 }
-    risqueParMois[key].total += item.probabilite_defaut
-    risqueParMois[key].count++
+    const jourKey = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0")
+    const jourLabel = date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+    if (!risqueParJour[jourKey]) risqueParJour[jourKey] = { label: jourLabel, total: 0, count: 0 }
+    risqueParJour[jourKey].total += item.probabilite_defaut
+    risqueParJour[jourKey].count++
   })
 
   const sortedMois = Object.keys(moisMap).sort().slice(-6)
-  const sortedRisque = Object.keys(risqueParMois).sort().slice(-6)
+  const sortedJours = Object.keys(risqueParJour).sort().slice(-7)
 
   return {
     histogramme: {
@@ -49,9 +51,9 @@ function buildChartData(historique) {
     },
     camembert: riskCount,
     courbe: {
-      labels: sortedRisque.map(k => risqueParMois[k].label),
-      values: sortedRisque.map(k =>
-        Math.round((risqueParMois[k].total / risqueParMois[k].count) * 10) / 10
+      labels: sortedJours.map(k => risqueParJour[k].label),
+      values: sortedJours.map(k =>
+        Math.round((risqueParJour[k].total / risqueParJour[k].count) * 10) / 10
       ),
     }
   }
@@ -272,7 +274,7 @@ function Graphiques({ historique, isDark }) {
 
       <div className={cardClass}>
         <p className={labelClass}>Évolution du risque moyen</p>
-        <p className={subClass}>Probabilité de défaut moyenne sur les 6 derniers mois</p>
+        <p className={subClass}>Probabilité de défaut moyenne par jour</p>
         <div className="flex items-center gap-4 mb-3">
           <span className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
             <span className="w-6 h-0.5 inline-block rounded" style={{ background: "#3b82f6" }} />
@@ -280,7 +282,7 @@ function Graphiques({ historique, isDark }) {
           </span>
         </div>
         <div style={{ position: "relative", height: "180px" }}>
-          <canvas ref={courbeRef} role="img" aria-label="Courbe d'évolution de la probabilité de défaut moyenne" />
+          <canvas ref={courbeRef} role="img" aria-label="Courbe d'évolution de la probabilité de défaut moyenne par jour" />
         </div>
       </div>
     </div>
