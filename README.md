@@ -175,7 +175,6 @@ Score_Credit/
 
 ---
 
-<<<<<<< HEAD
 ## Architecture technique
 ```
 ┌─────────────────────────────────────────────┐
@@ -267,8 +266,6 @@ npm run dev
 
 ---
 
-=======
->>>>>>> 430a417bbd2e6d369968cb7911b4947baaa91270
 ## Résultats des modèles
 
 | Modèle | AUC-ROC | Score Métier |
