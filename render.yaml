@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: score-credit-api
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: score-credit-db
+          property: connectionString
+      - key: MLFLOW_TRACKING_URI
+        value: http://127.0.0.1:5000
+
+databases:
+  - name: score-credit-db
+    databaseName: score_credit_db
+    plan: free
+    region: frankfurt
