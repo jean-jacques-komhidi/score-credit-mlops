@@ -9,6 +9,6 @@ scikit-learn==1.7.0
 xgboost==3.0.2
 shap==0.47.2
 lime==0.2.0.1
-imbalanced-learn==0.13.1
+imbalanced-learn==0.12.4
 mlflow==3.14.0
 python-dotenv==1.2.2
