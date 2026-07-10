@@ -10,14 +10,14 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copier les dépendances
-COPY requirements.txt .
+# Copier les dépendances depuis backend/
+COPY backend/requirements.txt .
 
 # Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier le code source
-COPY . .
+# Copier tout le code backend
+COPY backend/ .
 
 # Port exposé
 EXPOSE 8000
