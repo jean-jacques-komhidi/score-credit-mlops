@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+pydantic==2.13.4
+sqlalchemy==2.0.41
+psycopg2-binary==2.9.12
+pandas==2.3.3
+numpy==2.4.6
+scikit-learn==1.7.0
+xgboost==3.0.2
+shap==0.47.2
+lime==0.2.0.1
+imbalanced-learn==0.13.1
+mlflow==3.14.0
+python-dotenv==1.2.2
