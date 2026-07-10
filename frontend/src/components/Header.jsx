@@ -8,44 +8,59 @@ export default function Header({ title, subtitle }) {
   const { user } = useUser()
 
   return (
-    <header className={`fixed top-0 left-64 right-0 z-10 px-8 py-4 flex items-center justify-between
-      border-b transition-colors duration-300
-      ${isDark
-        ? "bg-zinc-950 border-zinc-800 text-white"
-        : "bg-white border-gray-100 text-gray-800"}`}>
+    <header className={"fixed top-0 left-0 lg:left-64 right-0 z-10 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between border-b transition-colors duration-300 " +
+      (isDark ? "bg-zinc-950 border-zinc-800" : "bg-white border-gray-100")}>
 
-      {/* Titre */}
-      <div>
-        <h1 className="text-xl font-bold">{title}</h1>
-        <p className={`text-sm ${isDark ? "text-zinc-500" : "text-gray-400"}`}>{subtitle}</p>
+      {/* Titre desktop */}
+      <div className="hidden lg:block">
+        <h1 className={"text-base font-semibold " + (isDark ? "text-white" : "text-gray-800")}>
+          {title}
+        </h1>
+        {subtitle && (
+          <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+
+      {/* Titre centré mobile */}
+      <div className="lg:hidden flex-1 text-center">
+        <h1 className={"text-sm font-semibold " + (isDark ? "text-white" : "text-gray-800")}>
+          {title}
+        </h1>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
 
-        {/* Toggle mode */}
+        {/* Toggle thème */}
         <button
           onClick={toggleTheme}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all
-            ${isDark
-              ? "bg-zinc-900 text-yellow-400 hover:bg-zinc-800"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          className={"w-8 h-8 rounded-lg flex items-center justify-center transition-all border " +
+            (isDark
+              ? "border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              : "border-gray-200 text-gray-500 hover:bg-gray-50")}>
+          {isDark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
 
         {/* Profil */}
         <Link
           to="/profil"
-          className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all
-            ${isDark
-              ? "bg-zinc-900 hover:bg-zinc-800"
-              : "bg-gray-100 hover:bg-gray-200"}`}>
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <User size={16} className="text-white" />
+          className={"flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all " +
+            (isDark
+              ? "border-zinc-800 hover:bg-zinc-800"
+              : "border-gray-200 hover:bg-gray-50")}>
+          <div className={"w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 " +
+            (isDark ? "bg-zinc-700" : "bg-gray-200")}>
+            <User size={13} className={isDark ? "text-zinc-300" : "text-gray-500"} />
           </div>
-          <div className="text-left">
-            <p className="text-xs font-semibold">{user.prenom} {user.nom}</p>
-            <p className={`text-xs ${isDark ? "text-zinc-500" : "text-gray-400"}`}>{user.role}</p>
+          <div className="text-left hidden lg:block">
+            <p className={"text-xs font-medium " + (isDark ? "text-zinc-200" : "text-gray-700")}>
+              {user.prenom} {user.nom}
+            </p>
+            <p className={"text-xs " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+              {user.role}
+            </p>
           </div>
         </Link>
       </div>

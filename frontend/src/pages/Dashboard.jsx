@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from "react"
 import { useTheme } from "../context/ThemeContext"
 import Header from "../components/Header"
 import MetricCard from "../components/MetricCard"
-import { checkHealth, getHistorique, getStats } from "../services/api"
+import { checkHealth, getHistorique, getStats, getModelInfo } from "../services/api"
 import {
-  Users, AlertTriangle, CheckCircle, XCircle, Activity, BarChart2, RefreshCw
+  Users, AlertTriangle, CheckCircle, XCircle, Activity, BarChart2, RefreshCw, Loader2
 } from "lucide-react"
 import { Chart, registerables } from "chart.js"
 
@@ -24,15 +24,12 @@ function buildChartData(historique) {
 
   historique.forEach(item => {
     const date = new Date(item.date)
-
     const moisKey = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0")
     const moisLabel = date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })
     if (!moisMap[moisKey]) moisMap[moisKey] = { label: moisLabel, accordes: 0, refuses: 0 }
     if (item.decision === "ACCORDÉ") moisMap[moisKey].accordes++
     else moisMap[moisKey].refuses++
-
     if (riskCount[item.niveau_risque] !== undefined) riskCount[item.niveau_risque]++
-
     const jourKey = date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0")
     const jourLabel = date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
     if (!risqueParJour[jourKey]) risqueParJour[jourKey] = { label: jourLabel, total: 0, count: 0 }
@@ -59,25 +56,36 @@ function buildChartData(historique) {
   }
 }
 
+function RiskBadge({ niveau, isDark }) {
+  const cfg = {
+    "FAIBLE":     isDark ? "text-emerald-400 border-emerald-800" : "text-emerald-700 border-emerald-200",
+    "MODÉRÉ":     isDark ? "text-amber-400 border-amber-800"    : "text-amber-700 border-amber-200",
+    "ÉLEVÉ":      isDark ? "text-orange-400 border-orange-800"  : "text-orange-700 border-orange-200",
+    "TRÈS ÉLEVÉ": isDark ? "text-red-400 border-red-800"        : "text-red-700 border-red-200",
+  }
+  return (
+    <span className={"text-xs px-2 py-0.5 rounded-full border font-medium whitespace-nowrap " +
+      (cfg[niveau] || (isDark ? "text-zinc-400 border-zinc-700" : "text-gray-500 border-gray-200"))}>
+      {RISK_LABELS[niveau] || niveau}
+    </span>
+  )
+}
+
 function Graphiques({ historique, isDark }) {
   const histRef = useRef(null)
   const camRef = useRef(null)
   const courbeRef = useRef(null)
   const charts = useRef({})
-
-  const gridColor = isDark ? "#27272a" : "#e5e7eb"
+  const gridColor = isDark ? "#27272a" : "#f3f4f6"
   const textColor = isDark ? "#71717a" : "#9ca3af"
 
   useEffect(() => {
     if (historique.length === 0) return
-
     const data = buildChartData(historique)
     let initiated = false
-
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && !initiated) {
         initiated = true
-
         Object.values(charts.current).forEach(c => c?.destroy())
         charts.current = {}
 
@@ -87,38 +95,17 @@ function Graphiques({ historique, isDark }) {
             data: {
               labels: data.histogramme.labels,
               datasets: [
-                {
-                  label: "Accordés",
-                  data: data.histogramme.accordes,
-                  backgroundColor: isDark ? "rgba(16,185,129,0.7)" : "rgba(16,185,129,0.8)",
-                  borderRadius: 4,
-                  borderSkipped: false,
-                },
-                {
-                  label: "Refusés",
-                  data: data.histogramme.refuses,
-                  backgroundColor: isDark ? "rgba(239,68,68,0.7)" : "rgba(239,68,68,0.8)",
-                  borderRadius: 4,
-                  borderSkipped: false,
-                }
+                { label: "Accordés", data: data.histogramme.accordes, backgroundColor: isDark ? "rgba(5,150,105,0.7)" : "rgba(5,150,105,0.85)", borderRadius: 4, borderSkipped: false },
+                { label: "Refusés", data: data.histogramme.refuses, backgroundColor: isDark ? "rgba(220,38,38,0.7)" : "rgba(220,38,38,0.85)", borderRadius: 4, borderSkipped: false }
               ]
             },
             options: {
-              responsive: true,
-              maintainAspectRatio: false,
+              responsive: true, maintainAspectRatio: false,
               animation: { duration: 1000, easing: "easeOutQuart" },
               plugins: { legend: { display: false } },
               scales: {
-                x: {
-                  ticks: { color: textColor, font: { size: 11 } },
-                  grid: { display: false },
-                  border: { color: gridColor }
-                },
-                y: {
-                  ticks: { color: textColor, font: { size: 11 } },
-                  grid: { color: gridColor },
-                  border: { display: false }
-                }
+                x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false }, border: { color: gridColor } },
+                y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor }, border: { display: false } }
               }
             }
           })
@@ -131,28 +118,15 @@ function Graphiques({ historique, isDark }) {
             type: "doughnut",
             data: {
               labels: ["Faible", "Modéré", "Élevé", "Très élevé"],
-              datasets: [{
-                data: [riskData["FAIBLE"], riskData["MODÉRÉ"], riskData["ÉLEVÉ"], riskData["TRÈS ÉLEVÉ"]],
-                backgroundColor: ["#10b981", "#f59e0b", "#f97316", "#ef4444"],
-                borderWidth: 2,
-                borderColor: isDark ? "#09090b" : "#ffffff",
-              }]
+              datasets: [{ data: [riskData["FAIBLE"], riskData["MODÉRÉ"], riskData["ÉLEVÉ"], riskData["TRÈS ÉLEVÉ"]], backgroundColor: ["#059669", "#d97706", "#ea580c", "#dc2626"], borderWidth: 2, borderColor: isDark ? "#09090b" : "#ffffff" }]
             },
             options: {
-              responsive: true,
-              maintainAspectRatio: false,
+              responsive: true, maintainAspectRatio: false,
               animation: { animateRotate: true, animateScale: true, duration: 1200, easing: "easeOutQuart" },
               cutout: "60%",
               plugins: {
                 legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    label: (ctx) => {
-                      const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0
-                      return " " + ctx.label + " : " + ctx.parsed + " (" + pct + "%)"
-                    }
-                  }
-                }
+                tooltip: { callbacks: { label: (ctx) => { const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0; return " " + ctx.label + " : " + ctx.parsed + " (" + pct + "%)" } } }
               }
             }
           })
@@ -163,111 +137,70 @@ function Graphiques({ historique, isDark }) {
             type: "line",
             data: {
               labels: data.courbe.labels,
-              datasets: [{
-                label: "Risque moyen (%)",
-                data: data.courbe.values,
-                borderColor: "#3b82f6",
-                backgroundColor: isDark ? "rgba(59,130,246,0.1)" : "rgba(59,130,246,0.08)",
-                borderWidth: 2,
-                pointRadius: 5,
-                pointBackgroundColor: "#3b82f6",
-                pointBorderColor: isDark ? "#09090b" : "#ffffff",
-                pointBorderWidth: 2,
-                tension: 0.35,
-                fill: true,
-              }]
+              datasets: [{ label: "Risque moyen (%)", data: data.courbe.values, borderColor: "#2563eb", backgroundColor: isDark ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.06)", borderWidth: 2, pointRadius: 4, pointBackgroundColor: "#2563eb", pointBorderColor: isDark ? "#09090b" : "#ffffff", pointBorderWidth: 2, tension: 0.35, fill: true }]
             },
             options: {
-              responsive: true,
-              maintainAspectRatio: false,
+              responsive: true, maintainAspectRatio: false,
               animation: { duration: 1200, easing: "easeOutQuart" },
               plugins: { legend: { display: false } },
               scales: {
-                x: {
-                  ticks: { color: textColor, font: { size: 11 } },
-                  grid: { display: false },
-                  border: { color: gridColor }
-                },
-                y: {
-                  ticks: {
-                    color: textColor,
-                    font: { size: 11 },
-                    callback: function(v) { return v + "%" }
-                  },
-                  grid: { color: gridColor },
-                  border: { display: false },
-                  min: 0,
-                }
+                x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false }, border: { color: gridColor } },
+                y: { ticks: { color: textColor, font: { size: 10 }, callback: v => v + "%" }, grid: { color: gridColor }, border: { display: false }, min: 0 }
               }
             }
           })
         }
-
         observer.disconnect()
       }
     }, { threshold: 0.1 })
 
-    if (histRef.current) {
-      observer.observe(histRef.current)
-    }
-
-    return () => {
-      observer.disconnect()
-      Object.values(charts.current).forEach(c => c?.destroy())
-    }
+    if (histRef.current) observer.observe(histRef.current)
+    return () => { observer.disconnect(); Object.values(charts.current).forEach(c => c?.destroy()) }
   }, [historique, isDark])
 
   if (historique.length === 0) return null
 
   const data = buildChartData(historique)
   const total = Object.values(data.camembert).reduce((a, b) => a + b, 0)
-  const riskColors = { FAIBLE: "#10b981", "MODÉRÉ": "#f59e0b", "ÉLEVÉ": "#f97316", "TRÈS ÉLEVÉ": "#ef4444" }
+  const riskColors = { FAIBLE: "#059669", "MODÉRÉ": "#d97706", "ÉLEVÉ": "#ea580c", "TRÈS ÉLEVÉ": "#dc2626" }
   const riskLabelsDisplay = { FAIBLE: "Faible", "MODÉRÉ": "Modéré", "ÉLEVÉ": "Élevé", "TRÈS ÉLEVÉ": "Très élevé" }
-
-  const cardClass = "rounded-2xl border p-5 transition-colors " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
-  const labelClass = "font-bold text-sm " + (isDark ? "text-white" : "text-gray-800")
-  const subClass = "text-xs mt-0.5 mb-4 " + (isDark ? "text-zinc-500" : "text-gray-400")
-  const legendColor = isDark ? "#d4d4d8" : "#4b5563"
+  const cardClass = "rounded-2xl border p-4 lg:p-5 transition-colors " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
+  const labelClass = "font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")
+  const subClass = "text-xs mt-0.5 mb-3 " + (isDark ? "text-zinc-500" : "text-gray-400")
+  const legendColor = isDark ? "#71717a" : "#9ca3af"
 
   return (
-    <div className="mb-8 space-y-5">
-      <div className="grid grid-cols-2 gap-5">
-
+    <div className="mb-6 lg:mb-8 space-y-4 lg:space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
         <div className={cardClass}>
           <p className={labelClass}>Décisions par mois</p>
           <p className={subClass}>Accordés vs refusés sur les 6 derniers mois</p>
           <div className="flex items-center gap-4 mb-3">
-            {[["#10b981", "Accordés"], ["#ef4444", "Refusés"]].map(function(item) {
-              return (
-                <span key={item[1]} className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
-                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: item[0] }} />
-                  {item[1]}
-                </span>
-              )
-            })}
+            {[["#059669", "Accordés"], ["#dc2626", "Refusés"]].map(item => (
+              <span key={item[1]} className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: item[0] }} />
+                {item[1]}
+              </span>
+            ))}
           </div>
-          <div style={{ position: "relative", height: "200px" }}>
-            <canvas ref={histRef} role="img" aria-label="Histogramme des décisions de crédit par mois" />
+          <div style={{ position: "relative", height: "180px" }}>
+            <canvas ref={histRef} role="img" aria-label="Histogramme des décisions par mois" />
           </div>
         </div>
 
         <div className={cardClass}>
           <p className={labelClass}>Répartition par niveau de risque</p>
           <p className={subClass}>Distribution des profils analysés</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-            {Object.entries(riskColors).map(function(entry) {
-              const key = entry[0]
-              const color = entry[1]
-              return (
-                <span key={key} className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
-                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: color }} />
-                  {riskLabelsDisplay[key]} {total > 0 ? Math.round(data.camembert[key] / total * 100) : 0}%
-                </span>
-              )
-            })}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3">
+            {Object.entries(riskColors).map(([key, color]) => (
+              <span key={key} className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: color }} />
+                {riskLabelsDisplay[key]} {total > 0 ? Math.round(data.camembert[key] / total * 100) : 0}%
+              </span>
+            ))}
           </div>
-          <div style={{ position: "relative", height: "200px" }}>
-            <canvas ref={camRef} role="img" aria-label="Camembert de répartition des niveaux de risque" />
+          <div style={{ position: "relative", height: "180px" }}>
+            <canvas ref={camRef} role="img" aria-label="Camembert des niveaux de risque" />
           </div>
         </div>
       </div>
@@ -277,12 +210,12 @@ function Graphiques({ historique, isDark }) {
         <p className={subClass}>Probabilité de défaut moyenne par jour</p>
         <div className="flex items-center gap-4 mb-3">
           <span className="flex items-center gap-1.5 text-xs" style={{ color: legendColor }}>
-            <span className="w-6 h-0.5 inline-block rounded" style={{ background: "#3b82f6" }} />
+            <span className="w-5 h-0.5 inline-block rounded" style={{ background: "#2563eb" }} />
             Risque moyen (%)
           </span>
         </div>
-        <div style={{ position: "relative", height: "180px" }}>
-          <canvas ref={courbeRef} role="img" aria-label="Courbe d'évolution de la probabilité de défaut moyenne par jour" />
+        <div style={{ position: "relative", height: "160px" }}>
+          <canvas ref={courbeRef} role="img" aria-label="Courbe du risque moyen par jour" />
         </div>
       </div>
     </div>
@@ -294,161 +227,203 @@ export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null)
   const [historique, setHistorique] = useState([])
   const [stats, setStats] = useState(null)
+  const [modelInfo, setModelInfo] = useState({ model_name: "scoring", version: "1.0.0" })
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [total, setTotal] = useState(0)
+  const offsetRef = useRef(0)
+  const observerRef = useRef(null)
+  const sentinelRef = useRef(null)
 
-  const fetchData = async () => {
-    setLoading(true)
+  const fetchStats = async () => {
     try {
-      const [health, hist, st] = await Promise.all([
-        checkHealth(),
-        getHistorique(),
-        getStats()
-      ])
+      const [health, st, info] = await Promise.all([checkHealth(), getStats(), getModelInfo()])
       setApiStatus(health)
-      setHistorique(hist)
       setStats(st)
-    } catch (error) {
-      console.error(error)
+      setModelInfo(info)
+    } catch {
       setApiStatus({ status: "ERROR" })
-    } finally {
-      setLoading(false)
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  const fetchHistorique = async (reset = false) => {
+    if (reset) {
+      offsetRef.current = 0
+      setHistorique([])
+      setHasMore(true)
+    }
+    if (reset) setLoading(true)
+    else setLoadingMore(true)
+
+    try {
+      const data = await getHistorique(20, offsetRef.current)
+      const items = data.items || []
+      setTotal(data.total || 0)
+      setHasMore(data.has_more || false)
+      setHistorique(prev => reset ? items : [...prev, ...items])
+      offsetRef.current += items.length
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }
+
+  const fetchAll = async () => {
+    setLoading(true)
+    await Promise.all([fetchStats(), fetchHistorique(true)])
+  }
+
+  useEffect(() => { fetchAll() }, [])
+
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect()
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+        fetchHistorique(false)
+      }
+    }, { threshold: 0.1 })
+    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
+    return () => observerRef.current?.disconnect()
+  }, [hasMore, loadingMore, loading])
 
   const isOK = apiStatus?.status === "OK"
-  const pageClass = "min-h-screen transition-colors duration-300 " + (isDark ? "bg-black" : "bg-gray-50")
-  const statusClass = "flex items-center gap-2 px-4 py-3 rounded-xl w-fit text-sm font-medium " + (isOK
-    ? (isDark ? "bg-green-500/10 text-green-400 border border-green-500/30" : "bg-green-50 text-green-700 border border-green-200")
-    : (isDark ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-red-50 text-red-700 border border-red-200"))
-  const refreshClass = "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all " + (isDark ? "bg-zinc-900 text-zinc-300 hover:bg-zinc-800" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200")
-  const tableClass = "rounded-2xl shadow-sm border p-6 transition-colors duration-300 " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100")
-  const headClass = "text-xs uppercase tracking-wider " + (isDark ? "text-zinc-500" : "text-gray-400")
-  const titleClass = "font-bold text-lg " + (isDark ? "text-white" : "text-gray-800")
-  const countClass = "text-xs px-3 py-1 rounded-full " + (isDark ? "bg-zinc-800 text-zinc-300" : "bg-gray-100 text-gray-500")
+  const modelLabel = `${modelInfo.model_name} v${modelInfo.version}`
+  const pageClass = "min-h-screen transition-colors duration-300 " + (isDark ? "bg-zinc-950" : "bg-gray-50")
+  const tableClass = "rounded-2xl border transition-colors overflow-hidden " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
+  const headClass = "text-xs uppercase tracking-wider " + (isDark ? "text-zinc-600" : "text-gray-400")
+  const cellClass = "py-3 text-xs " + (isDark ? "text-zinc-300" : "text-gray-600")
+  const borderB = isDark ? "border-zinc-800" : "border-gray-100"
 
   return (
     <div className={pageClass}>
       <Header title="Tableau de bord" subtitle="Vue d'ensemble du système de scoring crédit" />
 
-      <main className="ml-64 pt-24 px-8 pb-8">
+      <main className="lg:ml-64 pt-14 lg:pt-24 px-4 lg:px-8 pb-8">
 
-        <div className="flex items-center justify-between mb-6">
-          <div className={statusClass}>
-            <Activity size={16} />
-            {isOK ? "API connectée — XGBoost opérationnel" : "API non disponible"}
+        <div className="flex items-center justify-between mb-4 lg:mb-6 mt-4 lg:mt-0">
+          <div className={"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border " +
+            (isOK
+              ? (isDark ? "border-zinc-800 text-emerald-400" : "border-gray-200 text-emerald-600")
+              : (isDark ? "border-zinc-800 text-red-400" : "border-gray-200 text-red-600"))}>
+            <span className={"w-1.5 h-1.5 rounded-full flex-shrink-0 " + (isOK ? "bg-emerald-500" : "bg-red-500")} />
+            <span className="hidden sm:inline">
+              {isOK ? `API connectée — ${modelLabel} opérationnel` : "API non disponible"}
+            </span>
+            <span className="sm:hidden">{isOK ? "API OK" : "Hors ligne"}</span>
           </div>
-          <button onClick={fetchData} className={refreshClass}>
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            Actualiser
+          <button
+            onClick={fetchAll}
+            className={"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-all " +
+              (isDark ? "border-zinc-800 text-zinc-400 hover:bg-zinc-800" : "border-gray-200 text-gray-500 hover:bg-gray-50")}>
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-5 mb-8">
-          <MetricCard
-            title="Dossiers analysés"
-            value={loading ? null : stats?.total || 0}
-            subtitle="Total historique"
-            icon={Users}
-            color="blue"
-          />
-          <MetricCard
-            title="Taux d'accord"
-            value={loading ? null : stats?.taux_accord || 0}
-            suffix="%"
-            subtitle="Crédits accordés"
-            icon={CheckCircle}
-            color="green"
-          />
-          <MetricCard
-            title="Dossiers refusés"
-            value={loading ? null : stats?.refuses || 0}
-            subtitle="Risque trop élevé"
-            icon={XCircle}
-            color="red"
-          />
-          <MetricCard
-            title="Risque moyen"
-            value={loading ? null : stats?.proba_moyenne || 0}
-            suffix="%"
-            subtitle="Probabilité de défaut"
-            icon={AlertTriangle}
-            color="orange"
-          />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-8">
+          <MetricCard title="Dossiers analysés" value={loading ? null : stats?.total || 0} subtitle="Total historique" icon={Users} color="blue" />
+          <MetricCard title="Taux d'accord" value={loading ? null : stats?.taux_accord || 0} suffix="%" subtitle="Crédits accordés" icon={CheckCircle} color="green" />
+          <MetricCard title="Refusés" value={loading ? null : stats?.refuses || 0} subtitle="Risque trop élevé" icon={XCircle} color="red" />
+          <MetricCard title="Risque moyen" value={loading ? null : stats?.proba_moyenne || 0} suffix="%" subtitle="Prob. de défaut" icon={AlertTriangle} color="orange" />
         </div>
 
         {!loading && <Graphiques historique={historique} isDark={isDark} />}
 
         <div className={tableClass}>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <BarChart2 size={20} className="text-blue-600" />
-              <h2 className={titleClass}>Historique des analyses</h2>
+          <div className={"flex items-center justify-between p-4 lg:p-6 border-b " + borderB}>
+            <div className="flex items-center gap-2 lg:gap-3">
+              <BarChart2 size={16} className={isDark ? "text-zinc-500" : "text-gray-400"} />
+              <h2 className={"font-semibold text-sm lg:text-base " + (isDark ? "text-white" : "text-gray-800")}>
+                Historique des analyses
+              </h2>
             </div>
-            <span className={countClass}>{historique.length} entrées</span>
+            <span className={"text-xs px-2.5 py-1 rounded-full border " +
+              (isDark ? "border-zinc-800 text-zinc-500" : "border-gray-200 text-gray-400")}>
+              {historique.length} / {total}
+            </span>
           </div>
 
           {loading ? (
             <div className="text-center py-12">
-              <RefreshCw size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-              <p className={"text-sm " + (isDark ? "text-zinc-400" : "text-gray-400")}>Chargement des données...</p>
+              <Loader2 size={28} className={"animate-spin mx-auto mb-3 " + (isDark ? "text-zinc-600" : "text-gray-300")} />
+              <p className={"text-sm " + (isDark ? "text-zinc-500" : "text-gray-400")}>Chargement...</p>
             </div>
           ) : historique.length === 0 ? (
             <div className="text-center py-12">
-              <p className={"text-sm " + (isDark ? "text-zinc-400" : "text-gray-400")}>
-                Aucune analyse effectuée pour le moment. Allez dans la page Analyse pour commencer !
+              <p className={"text-sm " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                Aucune analyse effectuée pour le moment.
               </p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className={headClass}>
-                  <th className="text-left pb-3">Date</th>
-                  <th className="text-right pb-3">Revenu</th>
-                  <th className="text-right pb-3">Crédit</th>
-                  <th className="text-center pb-3">Âge</th>
-                  <th className="text-center pb-3">Risque</th>
-                  <th className="text-right pb-3">Probabilité</th>
-                  <th className="text-center pb-3">Décision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historique.map((item) => {
-                  const riskLabel = RISK_LABELS[item.niveau_risque] || item.niveau_risque
-                  const rowClass = "text-sm border-t transition-colors " + (isDark ? "border-zinc-800 hover:bg-zinc-800/50" : "border-gray-100 hover:bg-gray-50")
-                  const cellClass = "py-3 " + (isDark ? "text-zinc-300" : "text-gray-600")
-                  const probaClass = "py-3 text-right font-medium " + (item.probabilite_defaut > 50 ? "text-red-500" : "text-green-500")
-                  const riskClass = "px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap " + (
-                    item.niveau_risque === "FAIBLE" ? (isDark ? "bg-green-500/15 text-green-400" : "bg-green-100 text-green-700") :
-                    item.niveau_risque === "MODÉRÉ" ? (isDark ? "bg-yellow-500/15 text-yellow-400" : "bg-yellow-100 text-yellow-700") :
-                    item.niveau_risque === "ÉLEVÉ" ? (isDark ? "bg-orange-500/15 text-orange-400" : "bg-orange-100 text-orange-700") :
-                    (isDark ? "bg-red-500/15 text-red-400" : "bg-red-100 text-red-700")
-                  )
-                  const decisionClass = "px-3 py-1 rounded-full text-xs font-bold " + (
-                    item.decision === "ACCORDÉ"
-                      ? (isDark ? "bg-green-500/15 text-green-400" : "bg-green-100 text-green-700")
-                      : (isDark ? "bg-red-500/15 text-red-400" : "bg-red-100 text-red-700")
-                  )
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px]">
+                <thead>
+                  <tr className={"border-b " + borderB}>
+                    <th className={"text-left py-3 px-4 lg:px-6 " + headClass}>Date</th>
+                    <th className={"text-left py-3 " + headClass}>Client</th>
+                    <th className={"text-right py-3 hidden sm:table-cell " + headClass}>Revenu</th>
+                    <th className={"text-right py-3 hidden lg:table-cell " + headClass}>Crédit</th>
+                    <th className={"text-center py-3 hidden lg:table-cell " + headClass}>Âge</th>
+                    <th className={"text-center py-3 " + headClass}>Risque</th>
+                    <th className={"text-right py-3 " + headClass}>Prob.</th>
+                    <th className={"text-center py-3 pr-4 lg:pr-6 " + headClass}>Décision</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historique.map((item) => {
+                    const rowClass = "border-t transition-colors " +
+                      (isDark ? "border-zinc-800/50 hover:bg-zinc-800/30" : "border-gray-50 hover:bg-gray-50/80")
+                    const decisionClass = "text-xs px-2 py-0.5 rounded-full font-medium border " + (
+                      item.decision === "ACCORDÉ"
+                        ? (isDark ? "text-emerald-400 border-emerald-800" : "text-emerald-700 border-emerald-200")
+                        : (isDark ? "text-red-400 border-red-800" : "text-red-700 border-red-200")
+                    )
+                    return (
+                      <tr key={item.id} className={rowClass}>
+                        <td className={cellClass + " px-4 lg:px-6 whitespace-nowrap"}>{item.date}</td>
+                        <td className="py-3">
+                          {item.client_nom
+                            ? <span className={"text-xs font-medium " + (isDark ? "text-zinc-300" : "text-gray-700")}>{item.client_nom}</span>
+                            : <span className={"text-xs " + (isDark ? "text-zinc-700" : "text-gray-300")}>—</span>
+                          }
+                        </td>
+                        <td className={cellClass + " text-right hidden sm:table-cell whitespace-nowrap"}>
+                          {item.revenu?.toLocaleString()} FCFA
+                        </td>
+                        <td className={cellClass + " text-right hidden lg:table-cell whitespace-nowrap"}>
+                          {item.credit?.toLocaleString()} FCFA
+                        </td>
+                        <td className={cellClass + " text-center hidden lg:table-cell"}>{item.age} ans</td>
+                        <td className="py-3 text-center">
+                          <RiskBadge niveau={item.niveau_risque} isDark={isDark} />
+                        </td>
+                        <td className={"py-3 text-right text-xs font-medium " +
+                          (item.probabilite_defaut > 50 ? "text-red-500" : "text-emerald-500")}>
+                          {item.probabilite_defaut}%
+                        </td>
+                        <td className="py-3 text-center pr-4 lg:pr-6">
+                          <span className={decisionClass}>{item.decision}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
 
-                  return (
-                    <tr key={item.id} className={rowClass}>
-                      <td className={cellClass}>{item.date}</td>
-                      <td className={cellClass + " text-right"}>{item.revenu?.toLocaleString()} FCFA</td>
-                      <td className={cellClass + " text-right"}>{item.credit?.toLocaleString()} FCFA</td>
-                      <td className={cellClass + " text-center"}>{item.age} ans</td>
-                      <td className="py-3 text-center">
-                        <span className={riskClass}>{riskLabel}</span>
-                      </td>
-                      <td className={probaClass}>{item.probabilite_defaut}%</td>
-                      <td className="py-3 text-center">
-                        <span className={decisionClass}>{item.decision}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+              <div ref={sentinelRef} className="py-4 text-center">
+                {loadingMore && (
+                  <Loader2 size={18} className={"animate-spin mx-auto " + (isDark ? "text-zinc-600" : "text-gray-300")} />
+                )}
+                {!hasMore && historique.length > 0 && (
+                  <p className={"text-xs " + (isDark ? "text-zinc-700" : "text-gray-300")}>
+                    — Toutes les analyses sont affichées —
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </main>

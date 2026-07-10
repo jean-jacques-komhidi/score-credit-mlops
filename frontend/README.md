@@ -1,90 +1,106 @@
-# 🎨 Frontend — Score Crédit MLOps
+# Frontend — Score Crédit MLOps
 
 ## Description
 Interface utilisateur React pour interagir avec l'API de scoring crédit.
-Permet de saisir les données d'un client et d'obtenir en temps réel son score de risque,
-une explication SHAP en langage naturel, et de visualiser les performances du système.
+Permet de saisir les données d'un client, d'obtenir en temps réel son score de risque,
+une explication SHAP/LIME en langage naturel, et de visualiser les performances du système.
+L'interface est entièrement responsive (mobile et desktop) avec un mode jour/nuit.
 
 ## Stack technique
 | Outil | Rôle |
 |-------|------|
 | React + Vite | Framework frontend |
-| Tailwind CSS v3 | Styling |
-| Lucide React | Icônes professionnelles |
+| Tailwind CSS v3 | Styling responsive |
+| Lucide React | Icônes |
 | Axios | Appels HTTP vers l'API FastAPI |
 | React Router DOM | Navigation entre pages |
+| Chart.js | Graphiques dashboard |
 
 ## Structure du projet
 ```
 frontend/src/
 ├── components/
-│   ├── Header.jsx              # Barre du haut + toggle mode + profil + notifications
-│   ├── Sidebar.jsx             # Navigation latérale
-│   ├── MetricCard.jsx          # Cards de métriques
-│   ├── ScoreForm.jsx           # Formulaire de saisie client (amélioré)
-│   ├── ScoreResult.jsx         # Affichage du résultat
-│   ├── ShapChart.jsx           # Graphique SHAP + explication texte
-│   ├── ProfileModal.jsx        # Modal profil utilisateur éditable
+│   ├── Header.jsx              # Barre du haut + toggle thème + profil
+│   ├── Sidebar.jsx             # Navigation latérale (desktop + drawer mobile)
+│   ├── MetricCard.jsx          # Cards de métriques animées
+│   ├── ScoreForm.jsx           # Formulaire de saisie client
+│   ├── ScoreResult.jsx         # Résultat + speedometer SVG animé
+│   ├── ShapChart.jsx           # Graphique SHAP + LIME avec toggle
 │   └── NotificationsPanel.jsx  # Panel notifications dynamiques
 ├── context/
 │   ├── ThemeContext.jsx        # Gestion mode jour/nuit
-│   └── UserContext.jsx         # Gestion profil utilisateur
+│   ├── UserContext.jsx         # Gestion profil utilisateur
+│   └── NotificationsContext.jsx# Compteur notifications non lues
 ├── pages/
-│   ├── Dashboard.jsx           # Tableau de bord avec historique réel
-│   ├── Analyse.jsx             # Page d'analyse client
-│   ├── Monitoring.jsx          # Performance modèles + Data Drift
-│   └── Parametres.jsx          # Configuration système et profil
+│   ├── Dashboard.jsx           # Tableau de bord + infinite scroll
+│   ├── Analyse.jsx             # Recherche client + analyse crédit
+│   ├── Clients.jsx             # Liste clients + CRUD
+│   ├── ClientDetail.jsx        # Fiche client + historique analyses
+│   ├── Monitoring.jsx          # MLFlow + Data Drift + réentraînement
+│   ├── Notifications.jsx       # Alertes système + journal
+│   ├── Profil.jsx              # Profil utilisateur éditable
+│   └── Parametres.jsx          # Configuration système
 ├── services/
-│   └── api.js                  # Tous les appels API
+│   └── api.js                  # Tous les appels API centralisés
 ├── App.jsx                     # Routing principal
 └── index.css                   # Styles globaux Tailwind
 ```
 
 ## Pages de l'application
 
-### 📊 Dashboard
+### Dashboard
 - Cards de métriques en temps réel (depuis PostgreSQL)
-- Historique des analyses avec décisions et niveaux de risque
-- Statut de l'API (XGBoost opérationnel)
-- Bouton d'actualisation
+- Graphiques Chart.js (taux d'accord, distribution des risques)
+- Historique des analyses avec infinite scroll (20 prédictions par page)
+- Colonne client associée à chaque analyse
 
-### 🔍 Analyse de dossier
-- Formulaire client avec sections organisées :
+### Analyse de dossier
+- Recherche client par nom, prénom, numéro ou email (debounce 400ms)
+- Fiche client avec calcul automatique de l'âge depuis la date de naissance
+- Formulaire organisé en 5 sections :
   - Informations personnelles (âge, genre, enfants)
   - Situation professionnelle (ancienneté, revenu)
   - Patrimoine (voiture, bien immobilier)
   - Informations du crédit (montant, mensualité, type)
   - Scores de solvabilité externes (sliders 0-1)
-- Résultat en temps réel (ACCORDÉ/REFUSÉ)
-- Graphique SHAP avec explication en français
-- Explication en langage naturel pour les non-experts
-- Colonne droite sticky pour suivre le scroll
+- Résultat avec speedometer SVG animé (ACCORDÉ / REFUSÉ)
+- Toggle SHAP / LIME avec labels en français
+- Scroll automatique vers le résultat sur mobile
 
-### 📈 Monitoring
-- Performance des modèles MLFlow (runs dédupliqués par modèle)
-- Analyse Data Drift (référence vs production)
-- Barres de progression par feature
-- Statut global du système
+### Clients
+- Tableau desktop / cards mobile
+- Recherche temps réel avec debounce
+- Modal création client (slide depuis le bas sur mobile)
+- Navigation vers la fiche détail
 
-### ⚙️ Paramètres
+### Détail client
+- Informations CRUD complètes (modifier, supprimer)
+- Tableau des analyses desktop / cards mobile
+- Statistiques : total, accordés, refusés, dernière décision
+- Bouton "Nouvelle analyse" lié au client
+
+### Monitoring
+- 4 KPIs : AUC-ROC, Score métier, Version modèle, Statut drift
+- Bouton réentraînement multi-modèles (rouge si drift critique)
+- Barre de progression avec messages en temps réel (polling 2s)
+- Résultat détaillé : comparaison des 4 modèles entraînés
+- Tableau MLFlow avec AUC-ROC + Score métier par modèle
+- Data Drift avec Z-score par feature + interprétation
+
+### Notifications
+- Alertes système construites depuis les données réelles (stats + drift)
+- Journal des actions depuis la table `actions_log`
+
+### Profil
+- Informations utilisateur éditables
+- Modèle actif et AUC-ROC
+
+### Paramètres
 - Modification du profil utilisateur
 - Toggle mode jour/nuit
 - Seuils d'alerte data drift configurables (sliders)
-- Configuration des URLs API et MLFlow
-- Informations système (modèle, AUC-ROC, dataset)
-
-## Composants interactifs
-
-### 👤 ProfileModal
-- Modal avec avatar et informations utilisateur
-- Mode édition avec sauvegarde
-- Stats rapides (modèle actif, AUC-ROC)
-
-### 🔔 NotificationsPanel
-- Panel latéral avec alertes système dynamiques
-- Résumé des analyses (depuis PostgreSQL)
-- Statut drift par feature (depuis API)
-- Historique des actions réelles (depuis table `actions_log`)
+- Configuration URLs API et MLFlow
+- Informations système (modèle, AUC-ROC, dataset, version)
 
 ## Installation
 
@@ -124,25 +140,41 @@ VITE_API_URL=http://127.0.0.1:8000
 ## Appels API disponibles
 | Fonction | Endpoint | Description |
 |----------|----------|-------------|
-| `predictCredit` | POST /api/predict | Prédiction + SHAP |
+| `predictCredit` | POST /api/predict | Prédiction + SHAP + LIME |
 | `checkHealth` | GET /api/health | Statut API |
-| `getHistorique` | GET /api/historique | Historique prédictions |
+| `getHistorique` | GET /api/historique | Historique paginé (limit + offset) |
 | `getStats` | GET /api/stats | Statistiques globales |
-| `getMlflowRuns` | GET /api/mlflow-runs | Runs MLFlow |
-| `getDriftStats` | GET /api/drift-stats | Analyse drift |
-| `getActionsLog` | GET /api/actions-log | Historique actions |
+| `getMlflowRuns` | GET /api/mlflow-runs | Runs MLFlow toutes expériences |
+| `getDriftStats` | GET /api/drift-stats | Analyse drift Z-score |
+| `getActionsLog` | GET /api/actions-log | Historique actions système |
+| `rechercherClients` | GET /api/clients | Recherche clients |
+| `creerClient` | POST /api/clients | Créer un client |
+| `getDetailClient` | GET /api/clients/{id} | Détail + historique analyses |
+| `modifierClient` | PUT /api/clients/{id} | Modifier un client |
+| `supprimerClient` | DELETE /api/clients/{id} | Supprimer un client |
+| `lancerRetrain` | POST /api/retrain | Lancer le réentraînement |
+| `getRetrainStatus` | GET /api/retrain/status | Statut + progression réentraînement |
 
 ## Fonctionnalités
-- 🌙 Mode jour/nuit avec toggle
-- 👤 Profil utilisateur éditable
-- 🔔 Notifications dynamiques depuis PostgreSQL
-- 📋 Formulaire client intuitif avec boutons radio et sliders
-- 📊 Graphique SHAP interactif
-- 💬 Explication en langage naturel
-- 📈 Dashboard avec données réelles PostgreSQL
-- 🔄 Actualisation en temps réel
-- ⚙️ Page paramètres complète
-- 📱 Interface responsive
+- Mode jour/nuit avec persistance
+- Profil utilisateur éditable
+- Notifications dynamiques depuis PostgreSQL
+- Formulaire client avec validation et messages d'erreur
+- Speedometer SVG animé pour le score de risque
+- Toggle SHAP / LIME avec labels en français
+- Dashboard avec données réelles et infinite scroll
+- Gestion clients CRUD complète
+- Réentraînement multi-modèles avec barre de progression
+- Data Drift avec Z-score et interprétation
+- Interface entièrement responsive (mobile et desktop)
+- Sidebar avec drawer hamburger sur mobile
+
+## Design
+- Palette épurée : bleu pour les actions, vert pour ACCORDÉ, rouge pour REFUSÉ
+- Icônes sur fond gris neutre
+- Badges avec bordure colorée sans fond coloré
+- Liens actifs sidebar en gris discret
+- Transitions et animations légères
 
 ## Auteur
 **KOMHIDI Jean Jacques** — Master 2 UCAO

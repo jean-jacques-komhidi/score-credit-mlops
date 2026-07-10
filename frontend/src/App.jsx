@@ -10,6 +10,8 @@ import Monitoring from "./pages/Monitoring"
 import Parametres from "./pages/Parametres"
 import Notifications from "./pages/Notifications"
 import Profil from "./pages/Profil"
+import Clients from "./pages/Clients"
+import ClientDetail from "./pages/ClientDetail"
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/analyse" element={<Analyse />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/monitoring" element={<Monitoring />} />
               <Route path="/parametres" element={<Parametres />} />
               <Route path="/notifications" element={<Notifications />} />

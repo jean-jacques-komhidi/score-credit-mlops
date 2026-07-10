@@ -1,129 +1,190 @@
-// Sidebar.jsx
+import { useState } from "react"
 import { NavLink } from "react-router-dom"
 import { useTheme } from "../context/ThemeContext"
-import { useUser } from "../context/UserContext"
 import { useNotifications } from "../context/NotificationsContext"
-import { LayoutDashboard, Search, TrendingUp, Settings, Activity, Bell, User, Sun, Moon } from "lucide-react"
-
-const mainItems = [
-  { path: "/", icon: LayoutDashboard, label: "Tableau de bord" },
-  { path: "/analyse", icon: Search, label: "Analyse" },
-]
-
-const mloPsItems = [
-  { path: "/monitoring", icon: Activity, label: "Monitoring" },
-]
+import {
+  LayoutDashboard, Search, Bell, Activity,
+  User, Moon, Sun, Settings, Users, Menu, X
+} from "lucide-react"
 
 export default function Sidebar() {
   const { isDark, toggleTheme } = useTheme()
-  const { user } = useUser()
   const { unreadCount } = useNotifications()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  const navLinkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200
-    ${isActive
-      ? "bg-blue-600 text-white shadow-md"
-      : isDark
-        ? "text-zinc-300 hover:bg-zinc-900"
-        : "text-gray-600 hover:bg-gray-100"
-    }`
+  const baseLink = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all "
+  const activeClass = baseLink + (isDark
+    ? "bg-zinc-800 text-white"
+    : "bg-gray-100 text-gray-900")
+  const inactiveClass = baseLink + (isDark
+    ? "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-200"
+    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800")
 
-  const groupLabelClass = `text-[11px] font-semibold uppercase tracking-wider px-4 mb-2
-    ${isDark ? "text-zinc-600" : "text-gray-400"}`
+  const sectionLabel = "text-xs font-medium uppercase tracking-widest px-3 mb-1.5 " +
+    (isDark ? "text-zinc-700" : "text-gray-300")
+
+  const sidebarClass = "flex flex-col border-r " +
+    (isDark ? "bg-zinc-950 border-zinc-800" : "bg-white border-gray-100")
+
+  const Logo = () => (
+    <div className={"flex items-center gap-3 px-4 py-4 border-b " +
+      (isDark ? "border-zinc-800" : "border-gray-100")}>
+      <div className={"w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 " +
+        (isDark ? "bg-zinc-800" : "bg-gray-100")}>
+        <span className={"font-bold text-xs " + (isDark ? "text-zinc-300" : "text-gray-600")}>SC</span>
+      </div>
+      <div>
+        <p className={"font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")}>Score Crédit</p>
+        <p className={"text-xs " + (isDark ? "text-zinc-600" : "text-gray-400")}>MLOps Dashboard</p>
+      </div>
+    </div>
+  )
+
+  const NavLinks = ({ onClose }) => (
+    <>
+      <p className={sectionLabel}>MENU PRINCIPAL</p>
+
+      <NavLink to="/" end onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <LayoutDashboard size={16} />
+        Tableau de bord
+      </NavLink>
+
+      <NavLink to="/clients" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <Users size={16} />
+        Clients
+      </NavLink>
+
+      <NavLink to="/analyse" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <Search size={16} />
+        Analyse
+      </NavLink>
+
+      <NavLink to="/notifications" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <Bell size={16} />
+        <span className="flex-1">Notifications</span>
+        {unreadCount > 0 && (
+          <span className={"text-xs px-1.5 py-0.5 rounded-full font-medium " +
+            (isDark ? "bg-zinc-700 text-zinc-300" : "bg-gray-200 text-gray-600")}>
+            {unreadCount}
+          </span>
+        )}
+      </NavLink>
+
+      <div className="pt-3 pb-1">
+        <p className={sectionLabel}>MLOPS</p>
+      </div>
+
+      <NavLink to="/monitoring" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <Activity size={16} />
+        Monitoring
+      </NavLink>
+
+      <div className="pt-3 pb-1">
+        <p className={sectionLabel}>COMPTE</p>
+      </div>
+
+      <NavLink to="/profil" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <User size={16} />
+        Mon profil
+      </NavLink>
+
+      <button
+        onClick={() => { toggleTheme(); onClose && onClose() }}
+        className={inactiveClass + " w-full text-left"}>
+        {isDark ? <Sun size={16} /> : <Moon size={16} />}
+        Mode {isDark ? "clair" : "sombre"}
+      </button>
+    </>
+  )
+
+  const Footer = ({ onClose }) => (
+    <div className={"border-t px-3 py-3 space-y-1 " + (isDark ? "border-zinc-800" : "border-gray-100")}>
+      <NavLink to="/parametres" onClick={onClose}
+        className={({ isActive }) => isActive ? activeClass : inactiveClass}>
+        <Settings size={16} />
+        Paramètres
+      </NavLink>
+      <div className={"flex items-center gap-2.5 px-3 py-2 rounded-lg " +
+        (isDark ? "bg-zinc-900" : "bg-gray-50")}>
+        <div className={"w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 " +
+          (isDark ? "bg-zinc-800 text-zinc-300" : "bg-gray-200 text-gray-600")}>
+          KJ
+        </div>
+        <div className="min-w-0">
+          <p className={"text-xs font-medium truncate " + (isDark ? "text-zinc-200" : "text-gray-700")}>
+            Komhidi Jean Jacques
+          </p>
+          <p className={"text-xs truncate " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+            Master 2 UCAO
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
-    <aside className={`fixed top-0 left-0 h-full w-64 z-10 flex flex-col shadow-xl transition-colors duration-300
-      ${isDark ? "bg-zinc-950 text-white" : "bg-white text-gray-800"}`}>
+    <>
+      {/* ── DESKTOP ── */}
+      <aside className={"hidden lg:flex fixed left-0 top-0 h-full w-64 z-50 flex-col " + sidebarClass}>
+        <Logo />
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <NavLinks onClose={null} />
+        </nav>
+        <Footer onClose={null} />
+      </aside>
 
-      {/* Logo */}
-      <div className={`px-6 py-6 border-b ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-            <TrendingUp size={22} className="text-white" />
+      {/* ── MOBILE header ── */}
+      <div className={"lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 border-b " +
+        (isDark ? "bg-zinc-950 border-zinc-800" : "bg-white border-gray-100")}>
+        <div className="flex items-center gap-2">
+          <div className={"w-6 h-6 rounded-md flex items-center justify-center " +
+            (isDark ? "bg-zinc-800" : "bg-gray-100")}>
+            <span className={"font-bold text-xs " + (isDark ? "text-zinc-300" : "text-gray-600")}>SC</span>
           </div>
-          <div>
-            <p className="font-bold text-base">Score Crédit</p>
-            <p className={`text-xs ${isDark ? "text-zinc-500" : "text-gray-400"}`}>MLOps Dashboard</p>
-          </div>
+          <p className={"font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")}>Score Crédit</p>
         </div>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className={"p-2 rounded-lg border transition-colors " +
+            (isDark ? "border-zinc-800 text-zinc-400 hover:bg-zinc-800" : "border-gray-200 text-gray-500 hover:bg-gray-50")}>
+          <Menu size={18} />
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
-
-        {/* Menu principal */}
-        <div>
-          <p className={groupLabelClass}>Menu principal</p>
-          <div className="space-y-1">
-            {mainItems.map(({ path, icon: Icon, label }) => (
-              <NavLink key={path} to={path} end className={navLinkClass}>
-                <Icon size={18} />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-
-            <NavLink to="/notifications" className={navLinkClass}>
-              {() => (
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    <Bell size={18} />
-                    <span>Notifications</span>
-                  </div>
-                  {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
+      {/* ── MOBILE drawer ── */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className={"absolute left-0 top-0 h-full w-72 flex flex-col " + sidebarClass}>
+            <div className={"flex items-center justify-between px-4 py-4 border-b " +
+              (isDark ? "border-zinc-800" : "border-gray-100")}>
+              <div className="flex items-center gap-2.5">
+                <div className={"w-7 h-7 rounded-lg flex items-center justify-center " +
+                  (isDark ? "bg-zinc-800" : "bg-gray-100")}>
+                  <span className={"font-bold text-xs " + (isDark ? "text-zinc-300" : "text-gray-600")}>SC</span>
                 </div>
-              )}
-            </NavLink>
+                <p className={"font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")}>Score Crédit</p>
+              </div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className={"p-1.5 rounded-lg transition-colors " +
+                  (isDark ? "hover:bg-zinc-800 text-zinc-500" : "hover:bg-gray-100 text-gray-400")}>
+                <X size={17} />
+              </button>
+            </div>
+            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+              <NavLinks onClose={() => setMobileOpen(false)} />
+            </nav>
+            <Footer onClose={() => setMobileOpen(false)} />
           </div>
         </div>
-
-        {/* MLOps */}
-        <div>
-          <p className={groupLabelClass}>MLOps</p>
-          <div className="space-y-1">
-            {mloPsItems.map(({ path, icon: Icon, label }) => (
-              <NavLink key={path} to={path} end className={navLinkClass}>
-                <Icon size={18} />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-          </div>
-        </div>
-
-        {/* Compte */}
-        <div>
-          <p className={groupLabelClass}>Compte</p>
-          <div className="space-y-1">
-            <NavLink to="/profil" className={navLinkClass}>
-              <User size={18} />
-              <span>Mon profil</span>
-            </NavLink>
-
-            <button
-              onClick={toggleTheme}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200
-                ${isDark ? "text-zinc-300 hover:bg-zinc-900" : "text-gray-600 hover:bg-gray-100"}`}>
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-              <span>{isDark ? "Mode clair" : "Mode sombre"}</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Footer */}
-      <div className={`px-4 py-4 border-t space-y-2 ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
-        <NavLink to="/parametres" className={navLinkClass}>
-          <Settings size={18} />
-          <span>Paramètres</span>
-        </NavLink>
-        <div className={`px-4 pt-2 border-t ${isDark ? "border-zinc-800" : "border-gray-100"}`}>
-          <p className={`text-xs ${isDark ? "text-zinc-500" : "text-gray-400"}`}>{user.organisation}</p>
-          <p className="text-xs font-semibold">{user.prenom} {user.nom}</p>
-        </div>
-      </div>
-    </aside>
+      )}
+    </>
   )
 }

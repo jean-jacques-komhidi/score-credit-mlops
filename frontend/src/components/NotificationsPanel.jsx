@@ -20,7 +20,6 @@ export default function NotificationsPanel({ onClose }) {
 
         const notifs = []
 
-        // Stats prédictions
         if (stats.total > 0) {
           notifs.push({
             id: "stats",
@@ -32,7 +31,6 @@ export default function NotificationsPanel({ onClose }) {
           })
         }
 
-        // Drift
         drift.drift_features.forEach((f, i) => {
           notifs.push({
             id: `drift-${i}`,
@@ -45,7 +43,6 @@ export default function NotificationsPanel({ onClose }) {
           })
         })
 
-        // Modèle
         notifs.push({
           id: "model",
           icon: TrendingUp,
@@ -57,7 +54,6 @@ export default function NotificationsPanel({ onClose }) {
 
         setAlertes(notifs)
 
-        // Historique depuis PostgreSQL
         const hist = actions.map(a => ({
           id: a.id,
           icon: a.type === "prediction" ? Activity : Clock,
@@ -87,8 +83,8 @@ export default function NotificationsPanel({ onClose }) {
       <div className={`w-96 h-full shadow-2xl flex flex-col transition-colors
         ${isDark ? "bg-slate-800 text-white" : "bg-white text-gray-800"}`}>
 
-        {/* Header */}
-        <div className={`px-6 py-4 border-b flex items-center justify-between
+        {/* Header — fixe */}
+        <div className={`flex-shrink-0 px-6 py-4 border-b flex items-center justify-between
           ${isDark ? "border-slate-700" : "border-gray-100"}`}>
           <div className="flex items-center gap-2">
             <Bell size={20} className="text-blue-600" />
@@ -106,71 +102,78 @@ export default function NotificationsPanel({ onClose }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* Contenu — flex column avec scroll séparé */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* Alertes système */}
-          <div className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider
-            ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-            Alertes système
+          {/* Alertes système — fixes */}
+          <div className="flex-shrink-0">
+            <div className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider
+              ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+              Alertes système
+            </div>
+
+            {loading ? (
+              <div className="px-6 py-8 text-center">
+                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                  Chargement...
+                </p>
+              </div>
+            ) : alertes.map((notif) => (
+              <div key={notif.id} className={`px-4 py-3 border-b flex items-start gap-3 transition-colors
+                ${isDark ? "border-slate-700 hover:bg-slate-700/50" : "border-gray-50 hover:bg-gray-50"}`}>
+                <notif.icon size={18} className={`mt-0.5 flex-shrink-0 ${notif.couleur}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                    {notif.titre}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                    {notif.message}
+                  </p>
+                  <p className="text-xs text-blue-500 mt-1">{notif.temps}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {loading ? (
-            <div className="px-6 py-8 text-center">
-              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-                Chargement...
-              </p>
+          {/* Historique actions — scrollable indépendamment */}
+          <div className="flex-1 overflow-y-auto">
+            <div className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider sticky top-0 z-10
+              ${isDark ? "text-slate-400 bg-slate-800" : "text-gray-400 bg-white"}`}>
+              Historique des actions ({historique.length})
             </div>
-          ) : alertes.map((notif) => (
-            <div key={notif.id} className={`px-4 py-3 border-b flex items-start gap-3 transition-colors
-              ${isDark ? "border-slate-700 hover:bg-slate-700/50" : "border-gray-50 hover:bg-gray-50"}`}>
-              <notif.icon size={18} className={`mt-0.5 flex-shrink-0 ${notif.couleur}`} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
-                  {notif.titre}
-                </p>
-                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-                  {notif.message}
-                </p>
-                <p className="text-xs text-blue-500 mt-1">{notif.temps}</p>
-              </div>
-            </div>
-          ))}
 
-          {/* Historique actions depuis PostgreSQL */}
-          <div className={`px-4 py-2 mt-2 text-xs font-semibold uppercase tracking-wider
-            ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-            Historique des actions ({historique.length})
+            {historique.length === 0 ? (
+              <div className="px-6 py-4 text-center">
+                <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                  Aucune action enregistrée — Faites une analyse pour commencer !
+                </p>
+              </div>
+            ) : historique.map((notif) => (
+              <div key={notif.id} className={`px-4 py-3 border-b flex items-start gap-3 transition-colors
+                ${isDark ? "border-slate-700 hover:bg-slate-700/50" : "border-gray-50 hover:bg-gray-50"}`}>
+                <notif.icon size={18} className={`mt-0.5 flex-shrink-0 ${notif.couleur}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
+                    {notif.titre}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
+                    {notif.message}
+                  </p>
+                  <p className="text-xs text-blue-500 mt-1">{notif.temps}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {historique.length === 0 ? (
-            <div className="px-6 py-4 text-center">
-              <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-                Aucune action enregistrée — Faites une analyse pour commencer !
-              </p>
-            </div>
-          ) : historique.map((notif) => (
-            <div key={notif.id} className={`px-4 py-3 border-b flex items-start gap-3 transition-colors
-              ${isDark ? "border-slate-700 hover:bg-slate-700/50" : "border-gray-50 hover:bg-gray-50"}`}>
-              <notif.icon size={18} className={`mt-0.5 flex-shrink-0 ${notif.couleur}`} />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-800"}`}>
-                  {notif.titre}
-                </p>
-                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-gray-400"}`}>
-                  {notif.message}
-                </p>
-                <p className="text-xs text-blue-500 mt-1">{notif.temps}</p>
-              </div>
-            </div>
-          ))}
         </div>
 
-        {/* Footer */}
-        <div className={`px-6 py-4 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
+        {/* Footer — fixe */}
+        <div className={`flex-shrink-0 px-6 py-4 border-t ${isDark ? "border-slate-700" : "border-gray-100"}`}>
           <p className={`text-xs text-center ${isDark ? "text-slate-400" : "text-gray-400"}`}>
             {alertes.length + historique.length} notifications au total
           </p>
         </div>
+
       </div>
     </div>
   )

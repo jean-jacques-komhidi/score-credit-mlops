@@ -1,303 +1,571 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTheme } from "../context/ThemeContext"
 import Header from "../components/Header"
-import MetricCard from "../components/MetricCard"
-import { getMlflowRuns, getDriftStats } from "../services/api"
+import { getMlflowRuns, getDriftStats, lancerRetrain, getRetrainStatus } from "../services/api"
 import {
-  Activity, BarChart2, RefreshCw, AlertTriangle,
-  CheckCircle, TrendingUp, Database, Zap, FileText, ExternalLink
+  Activity, RefreshCw, Loader2,
+  CheckCircle, AlertTriangle, XCircle, Database, Award,
+  Zap, TrendingUp, TrendingDown, BarChart2
 } from "lucide-react"
-
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-
-function AnimatedRow({ run, isDark, delay }) {
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), delay)
-    return () => clearTimeout(t)
-  }, [delay])
-
-  const rowStyle = {
-    opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(8px)",
-    transition: "opacity 0.5s ease " + delay + "ms, transform 0.5s ease " + delay + "ms"
-  }
-
-  const rowClass = "text-sm border-t " + (isDark ? "border-zinc-800 hover:bg-zinc-800/50" : "border-gray-100 hover:bg-gray-50")
-  const nameClass = "py-3 font-medium " + (isDark ? "text-zinc-300" : "text-gray-700")
-  const aucClass = "py-3 text-right font-bold " + (run.auc_roc > 0.7 ? (isDark ? "text-green-400" : "text-green-500") : (isDark ? "text-orange-400" : "text-orange-500"))
-  const scoreClass = "py-3 text-right " + (isDark ? "text-zinc-300" : "text-gray-600")
-  const badgeClass = "text-xs px-2 py-1 rounded-full " + (isDark ? "bg-green-500/15 text-green-400" : "bg-green-100 text-green-700")
-
-  return (
-    <tr style={rowStyle} className={rowClass}>
-      <td className={nameClass}>{run.nom}</td>
-      <td className={aucClass}>{run.auc_roc}</td>
-      <td className={scoreClass}>{run.score_metier}</td>
-      <td className="py-3 text-center">
-        <span className={badgeClass}>{run.statut}</span>
-      </td>
-    </tr>
-  )
-}
-
-function DriftCard({ feature: f, isDark, delay, getBadgeColor, getBadgeIcon, getDriftBarColor }) {
-  const [barWidth, setBarWidth] = useState(0)
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setVisible(true), delay)
-    const t2 = setTimeout(() => setBarWidth(Math.min(f.ecart_pct * 2, 100)), delay + 200)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [delay, f.ecart_pct])
-
-  const cardStyle = {
-    opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(12px)",
-    transition: "opacity 0.5s ease " + delay + "ms, transform 0.5s ease " + delay + "ms"
-  }
-
-  const barStyle = {
-    width: barWidth + "%",
-    transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)"
-  }
-
-  const cardClass = "p-4 rounded-xl border " + (isDark ? "bg-zinc-800/60 border-zinc-700" : "bg-gray-50 border-gray-100")
-  const titleClass = "font-medium text-sm " + (isDark ? "text-white" : "text-gray-800")
-  const trackClass = "w-full h-2 rounded-full mb-2 " + (isDark ? "bg-zinc-700" : "bg-gray-200")
-  const refClass = isDark ? "text-zinc-400" : "text-gray-500"
-  const ecartClass = "font-bold " + (f.ecart_pct > 40 ? "text-red-500" : f.ecart_pct > 20 ? "text-yellow-500" : "text-green-500")
-
-  return (
-    <div style={cardStyle} className={cardClass}>
-      <div className="flex items-center justify-between mb-2">
-        <span className={titleClass}>{f.feature}</span>
-        <span className={"text-xs px-2 py-1 rounded-full font-medium " + getBadgeColor(f.statut)}>
-          {getBadgeIcon(f.statut)} {f.statut}
-        </span>
-      </div>
-      <div className={trackClass}>
-        <div style={barStyle} className={"h-2 rounded-full " + getDriftBarColor(f.ecart_pct)} />
-      </div>
-      <div className="flex justify-between text-xs">
-        <span className={refClass}>Réf: {f.ref_mean?.toLocaleString()} FCFA</span>
-        <span className={ecartClass}>Écart: {f.ecart_pct}%</span>
-        <span className={refClass}>Prod: {f.prod_mean?.toLocaleString()} FCFA</span>
-      </div>
-    </div>
-  )
-}
 
 export default function Monitoring() {
   const { isDark } = useTheme()
-  const [runs, setRuns] = useState([])
-  const [drift, setDrift] = useState(null)
+  const [mlflowRuns, setMlflowRuns] = useState([])
+  const [driftStats, setDriftStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [retrainStatus, setRetrainStatus] = useState(null)
+  const [launching, setLaunching] = useState(false)
+  const [retrainError, setRetrainError] = useState(null)
+  const pollRef = useRef(null)
 
-  const fetchData = async () => {
+  const fetchAll = async () => {
     setLoading(true)
     try {
-      const [runsData, driftData] = await Promise.all([
+      const [runs, drift, status] = await Promise.all([
         getMlflowRuns(),
-        getDriftStats()
+        getDriftStats(),
+        getRetrainStatus()
       ])
-      setRuns(runsData)
-      setDrift(driftData)
-    } catch (error) {
-      console.error(error)
+      setMlflowRuns(runs)
+      setDriftStats(drift)
+      setRetrainStatus(status)
+    } catch (e) {
+      console.error(e)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchAll() }, [])
 
-  const getBadgeColor = (statut) => {
-    if (isDark) {
-      if (statut === "NORMAL") return "bg-green-500/15 text-green-400"
-      if (statut === "ALERTE") return "bg-yellow-500/15 text-yellow-400"
-      if (statut === "CRITIQUE") return "bg-red-500/15 text-red-400"
-      return "bg-zinc-800 text-zinc-400"
+  const startPolling = () => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const status = await getRetrainStatus()
+        setRetrainStatus(status)
+        if (!status.running) {
+          clearInterval(pollRef.current)
+          const [runs, drift] = await Promise.all([getMlflowRuns(), getDriftStats()])
+          setMlflowRuns(runs)
+          setDriftStats(drift)
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }, 2000)
+  }
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  const handleRetrain = async () => {
+    setLaunching(true)
+    setRetrainError(null)
+    try {
+      await lancerRetrain()
+      startPolling()
+    } catch (e) {
+      setRetrainError(e.message)
+    } finally {
+      setLaunching(false)
     }
-    if (statut === "NORMAL") return "bg-green-100 text-green-700"
-    if (statut === "ALERTE") return "bg-yellow-100 text-yellow-700"
-    if (statut === "CRITIQUE") return "bg-red-100 text-red-700"
-    return "bg-gray-100 text-gray-700"
   }
 
-  const getBadgeIcon = (statut) => {
-    if (statut === "NORMAL") return "🟢"
-    if (statut === "ALERTE") return "🟡"
-    if (statut === "CRITIQUE") return "🔴"
-    return "⚪"
+  const pageClass = "min-h-screen transition-colors duration-300 " + (isDark ? "bg-zinc-950" : "bg-gray-50")
+  const cardClass = "rounded-xl border transition-colors " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
+  const borderB = isDark ? "border-zinc-800" : "border-gray-100"
+  const headClass = "text-xs font-medium uppercase tracking-wider " + (isDark ? "text-zinc-600" : "text-gray-400")
+
+  const bestRun = mlflowRuns[0]
+  const isRunning = retrainStatus?.running
+  const lastResult = retrainStatus?.last_result
+  const currentVersion = retrainStatus?.current_version || "1.0.0"
+
+  const statutConfig = {
+    "NORMAL":   { icon: CheckCircle,   color: isDark ? "text-emerald-400 border-emerald-900" : "text-emerald-600 border-emerald-200" },
+    "ALERTE":   { icon: AlertTriangle, color: isDark ? "text-amber-400 border-amber-900"     : "text-amber-600 border-amber-200" },
+    "CRITIQUE": { icon: XCircle,       color: isDark ? "text-red-400 border-red-900"         : "text-red-600 border-red-200" },
   }
 
-  const getDriftBarColor = (pct) => {
-    if (pct > 40) return "bg-red-500"
-    if (pct > 20) return "bg-yellow-500"
-    return "bg-green-500"
-  }
-
-  const isNormal = drift?.statut_global === "NORMAL"
-  const pageClass = "min-h-screen transition-colors duration-300 " + (isDark ? "bg-black" : "bg-gray-50")
-  const cardClass = "rounded-2xl border p-6 transition-colors " + (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")
-  const statusClass = "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium " + (isNormal
-    ? (isDark ? "bg-green-500/10 text-green-400 border border-green-500/30" : "bg-green-50 text-green-700 border border-green-200")
-    : (isDark ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30" : "bg-yellow-50 text-yellow-700 border border-yellow-200"))
-  const refreshClass = "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all " + (isDark ? "bg-zinc-900 text-zinc-300 hover:bg-zinc-800" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200")
-  const titleClass = "font-bold text-base " + (isDark ? "text-white" : "text-gray-800")
-  const headClass = "text-xs uppercase tracking-wider " + (isDark ? "text-zinc-500" : "text-gray-400")
-  const loadClass = "text-sm " + (isDark ? "text-zinc-400" : "text-gray-400")
-  const emptyClass = "text-sm text-center py-8 " + (isDark ? "text-zinc-400" : "text-gray-400")
-
-  const reportLinkStyle = {
-    marginTop: "1rem",
-    padding: "1rem",
-    borderRadius: "0.75rem",
-    border: "1px solid " + (isDark ? "rgba(59,130,246,0.3)" : "rgb(191,219,254)"),
-    background: isDark ? "rgba(59,130,246,0.1)" : "rgb(239,246,255)",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.75rem",
-    textDecoration: "none",
-    transition: "all 0.2s"
-  }
-
-  const reportIconStyle = {
-    width: "2.5rem",
-    height: "2.5rem",
-    borderRadius: "0.75rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    background: isDark ? "rgba(59,130,246,0.2)" : "rgb(219,234,254)"
-  }
-
-  const reportTitleClass = "text-sm font-semibold " + (isDark ? "text-blue-300" : "text-blue-700")
-  const reportSubClass = "text-xs " + (isDark ? "text-blue-400" : "text-blue-500")
-  const reportIconClass = isDark ? "text-blue-400" : "text-blue-600"
-  const externalClass = "flex-shrink-0 " + (isDark ? "text-blue-400" : "text-blue-500")
+  const hasCritical = driftStats?.drift_features?.some(f => f.statut === "CRITIQUE")
+  const hasAlert    = driftStats?.drift_features?.some(f => f.statut === "ALERTE")
 
   return (
     <div className={pageClass}>
-      <Header title="Monitoring" subtitle="Performance des modèles et analyse du data drift" />
+      <Header title="Monitoring" subtitle="Suivi MLFlow et détection de data drift" />
 
-      <main className="ml-64 pt-24 px-8 pb-8">
+      <main className="lg:ml-64 pt-14 lg:pt-24 px-4 lg:px-8 pb-8">
 
-        <div className="flex items-center justify-between mb-6">
-          <div className={statusClass}>
-            <Activity size={16} />
-            {isNormal ? "Système stable — Pas de drift détecté" : "Drift détecté — Surveillance renforcée"}
+        {/* Header */}
+        <div className="flex items-center justify-between mt-4 lg:mt-0 mb-5">
+          <div className="flex items-center gap-2">
+            <Activity size={15} className={isDark ? "text-zinc-500" : "text-gray-400"} />
+            <span className={"font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")}>
+              Tableau de monitoring
+            </span>
+            <span className={"text-xs px-2 py-0.5 rounded-full border font-medium " +
+              (isDark ? "border-zinc-700 text-zinc-500" : "border-gray-200 text-gray-400")}>
+              v{currentVersion}
+            </span>
           </div>
-          <button onClick={fetchData} className={refreshClass}>
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            Actualiser
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={fetchAll}
+              className={"flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all " +
+                (isDark ? "border-zinc-800 text-zinc-400 hover:bg-zinc-800" : "border-gray-200 text-gray-500 hover:bg-gray-50")}>
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+              <span className="hidden sm:inline">Actualiser</span>
+            </button>
+            <button
+              onClick={handleRetrain}
+              disabled={isRunning || launching}
+              className={"flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl text-xs font-semibold transition-all " +
+                (isRunning || launching
+                  ? (isDark ? "border border-zinc-800 text-zinc-600 cursor-not-allowed" : "border border-gray-200 text-gray-400 cursor-not-allowed")
+                  : hasCritical
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white")}>
+              {isRunning || launching
+                ? <Loader2 size={13} className="animate-spin" />
+                : <Zap size={13} />}
+              <span className="hidden sm:inline">
+                {isRunning ? "Réentraînement en cours..." : launching ? "Lancement..." : "Réentraîner le modèle"}
+              </span>
+              <span className="sm:hidden">
+                {isRunning ? "En cours..." : "Réentraîner"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-5 mb-8">
-          <MetricCard
-            title="Runs MLFlow"
-            value={loading ? null : runs.length}
-            subtitle="Expériences loggées"
-            icon={BarChart2}
-            color="blue"
-          />
-          <MetricCard
-            title="Meilleur AUC-ROC"
-            value={loading ? null : runs.length > 0 ? parseFloat(Math.max(...runs.map(r => r.auc_roc)).toFixed(4)) : null}
-            subtitle="XGBoost"
-            icon={TrendingUp}
-            color="green"
-          />
-          <MetricCard
-            title="Prédictions totales"
-            value={loading ? null : drift?.total_predictions || 0}
-            subtitle="En production"
-            icon={Database}
-            color="orange"
-          />
-          <MetricCard
-            title="Statut Drift"
-            value={loading ? null : drift?.statut_global || "N/A"}
-            subtitle="Analyse des distributions"
-            icon={isNormal ? CheckCircle : AlertTriangle}
-            color={isNormal ? "green" : "orange"}
-          />
-        </div>
+        {/* Erreur lancement */}
+        {retrainError && (
+          <div className={"mb-4 rounded-xl border px-4 py-3 text-xs " +
+            (isDark ? "bg-red-500/10 border-red-900 text-red-400" : "bg-red-50 border-red-200 text-red-700")}>
+            ❌ {retrainError}
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-6">
-
-          <div className={cardClass}>
-            <div className="flex items-center gap-2 mb-5">
-              <Zap size={20} className="text-blue-600" />
-              <h2 className={titleClass}>Runs MLFlow</h2>
+        {/* Barre de progression */}
+        {(isRunning || (retrainStatus?.progress > 0 && retrainStatus?.progress < 100)) && (
+          <div className={"mb-5 rounded-xl border p-4 " +
+            (isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-100 shadow-sm")}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Loader2 size={13} className={"animate-spin " + (isDark ? "text-blue-400" : "text-blue-600")} />
+                <span className={"text-xs font-medium " + (isDark ? "text-white" : "text-gray-800")}>
+                  Réentraînement multi-modèles en cours
+                </span>
+              </div>
+              <span className={"text-xs font-semibold tabular-nums " + (isDark ? "text-blue-400" : "text-blue-600")}>
+                {retrainStatus?.progress || 0}%
+              </span>
             </div>
-            {loading ? (
-              <div className="text-center py-8">
-                <RefreshCw size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
-                <p className={loadClass}>Chargement...</p>
-              </div>
-            ) : runs.length === 0 ? (
-              <p className={emptyClass}>Aucun run MLFlow trouvé</p>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className={headClass}>
-                    <th className="text-left pb-3">Modèle</th>
-                    <th className="text-right pb-3">AUC-ROC</th>
-                    <th className="text-right pb-3">Score Métier</th>
-                    <th className="text-center pb-3">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {runs.map((run, i) => (
-                    <AnimatedRow key={i} run={run} isDark={isDark} delay={i * 120} />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className={cardClass}>
-            <div className="flex items-center gap-2 mb-5">
-              <Activity size={20} className="text-purple-600" />
-              <h2 className={titleClass}>Analyse Data Drift</h2>
+            <div className={"w-full h-1.5 rounded-full mb-2 " + (isDark ? "bg-zinc-800" : "bg-gray-100")}>
+              <div
+                className="h-1.5 rounded-full bg-blue-600 transition-all duration-500"
+                style={{ width: (retrainStatus?.progress || 0) + "%" }}
+              />
             </div>
-            {loading ? (
-              <div className="text-center py-8">
-                <RefreshCw size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
-                <p className={loadClass}>Chargement...</p>
+            <p className={"text-xs " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+              {retrainStatus?.message}
+            </p>
+          </div>
+        )}
+
+        {/* Résultat dernier réentraînement */}
+        {retrainStatus?.progress === 100 && lastResult && (
+          <div className={"mb-5 rounded-xl border p-4 " +
+            (lastResult.improved
+              ? (isDark ? "bg-emerald-500/5 border-emerald-900" : "bg-emerald-50 border-emerald-200")
+              : (isDark ? "bg-amber-500/5 border-amber-900" : "bg-amber-50 border-amber-200"))}>
+
+            <div className="flex items-center gap-2 mb-3">
+              {lastResult.improved
+                ? <CheckCircle size={14} className={isDark ? "text-emerald-400" : "text-emerald-600"} />
+                : <AlertTriangle size={14} className={isDark ? "text-amber-400" : "text-amber-600"} />}
+              <span className={"text-xs font-semibold " +
+                (lastResult.improved
+                  ? (isDark ? "text-emerald-400" : "text-emerald-700")
+                  : (isDark ? "text-amber-400" : "text-amber-700"))}>
+                {lastResult.improved
+                  ? `${lastResult.best_model} v${lastResult.new_version} déployé avec succès !`
+                  : `Ancien modèle conservé — pas d'amélioration`}
+              </span>
+            </div>
+
+            {/* Métriques AUC + Score métier */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-white/70")}>
+                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>AUC-ROC avant</p>
+                <p className={"text-sm font-bold tabular-nums " + (isDark ? "text-zinc-300" : "text-gray-600")}>
+                  {lastResult.old_auc}
+                </p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {drift?.drift_features?.map((f, i) => (
-                  <DriftCard
-                    key={i}
-                    feature={f}
-                    isDark={isDark}
-                    delay={i * 150}
-                    getBadgeColor={getBadgeColor}
-                    getBadgeIcon={getBadgeIcon}
-                    getDriftBarColor={getDriftBarColor}
-                  />
-                ))}
-                <a href={API_URL + "/api/drift-report"} target="_blank" rel="noopener noreferrer" style={reportLinkStyle}>
-                  <div style={reportIconStyle}>
-                    <FileText size={18} className={reportIconClass} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className={reportTitleClass}>Rapport Evidently complet</p>
-                    <p className={reportSubClass}>Cliquez pour ouvrir dans un nouvel onglet</p>
-                  </div>
-                  <ExternalLink size={16} className={externalClass} />
-                </a>
+              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-white/70")}>
+                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>AUC-ROC après</p>
+                <p className={"text-sm font-bold tabular-nums flex items-center gap-1 " +
+                  (lastResult.improved
+                    ? (isDark ? "text-emerald-400" : "text-emerald-600")
+                    : (isDark ? "text-amber-400" : "text-amber-600"))}>
+                  {lastResult.new_auc}
+                  {lastResult.improved
+                    ? <TrendingUp size={11} />
+                    : <TrendingDown size={11} />}
+                </p>
+              </div>
+              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-white/70")}>
+                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Score métier avant</p>
+                <p className={"text-sm font-bold tabular-nums " + (isDark ? "text-zinc-300" : "text-gray-600")}>
+                  {lastResult.old_score_metier?.toLocaleString() || "—"}
+                </p>
+              </div>
+              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-white/70")}>
+                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Score métier après</p>
+                <p className={"text-sm font-bold tabular-nums " +
+                  (lastResult.improved
+                    ? (isDark ? "text-emerald-400" : "text-emerald-600")
+                    : (isDark ? "text-amber-400" : "text-amber-600"))}>
+                  {lastResult.new_score_metier?.toLocaleString() || "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Comparaison 4 modèles */}
+            {lastResult.resultats && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <BarChart2 size={12} className={isDark ? "text-zinc-500" : "text-gray-400"} />
+                  <p className={"text-xs font-medium " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                    Comparaison des modèles entraînés
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {Object.entries(lastResult.resultats)
+                    .sort((a, b) => b[1].auc - a[1].auc)
+                    .map(([nom, res]) => {
+                      const isBest = nom === lastResult.best_model
+                      return (
+                        <div key={nom}
+                          className={"rounded-lg p-2.5 border " +
+                            (isBest
+                              ? (isDark ? "border-emerald-900 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
+                              : (isDark ? "border-zinc-700 bg-zinc-800/30" : "border-gray-200 bg-white/50"))}>
+                          <div className="flex items-center gap-1 mb-1">
+                            {isBest && <span className="text-xs">🏆</span>}
+                            <p className={"text-xs font-medium truncate " +
+                              (isBest
+                                ? (isDark ? "text-emerald-400" : "text-emerald-700")
+                                : (isDark ? "text-zinc-300" : "text-gray-600"))}>
+                              {nom}
+                            </p>
+                          </div>
+                          <p className={"text-xs font-semibold tabular-nums " +
+                            (isBest
+                              ? (isDark ? "text-emerald-400" : "text-emerald-600")
+                              : (isDark ? "text-zinc-400" : "text-gray-500"))}>
+                            {res.auc}
+                          </p>
+                          <p className={"text-xs tabular-nums " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                            Score : {res.score_metier?.toLocaleString() || "—"}
+                          </p>
+                        </div>
+                      )
+                    })}
+                </div>
               </div>
             )}
-          </div>
 
-        </div>
+            <p className={"text-xs mt-3 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+              {lastResult.n_prod_samples} échantillons production · {lastResult.timestamp}
+            </p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-20">
+            <Loader2 size={26} className={"animate-spin mx-auto mb-3 " + (isDark ? "text-zinc-600" : "text-gray-300")} />
+            <p className={"text-sm " + (isDark ? "text-zinc-500" : "text-gray-400")}>Chargement...</p>
+          </div>
+        ) : (
+          <>
+            {/* Bandeau statut drift */}
+            {driftStats && (
+              <div className={"flex items-center gap-3 px-4 py-3 rounded-xl border mb-5 " +
+                (hasCritical
+                  ? (isDark ? "border-red-900 bg-red-500/5" : "border-red-200 bg-red-50/50")
+                  : hasAlert
+                    ? (isDark ? "border-amber-900 bg-amber-500/5" : "border-amber-200 bg-amber-50/50")
+                    : (isDark ? "border-emerald-900 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/50"))}>
+                <span className={"w-2 h-2 rounded-full flex-shrink-0 " +
+                  (hasCritical ? "bg-red-500" : hasAlert ? "bg-amber-500" : "bg-emerald-500")} />
+                <span className={"text-xs font-medium " +
+                  (hasCritical
+                    ? (isDark ? "text-red-400" : "text-red-700")
+                    : hasAlert
+                      ? (isDark ? "text-amber-400" : "text-amber-700")
+                      : (isDark ? "text-emerald-400" : "text-emerald-700"))}>
+                  Data Drift — {hasCritical
+                    ? "Drift critique — Réentraînement recommandé !"
+                    : hasAlert
+                      ? "Dérive modérée détectée sur certaines features"
+                      : "Aucune dérive détectée — Distribution normale"}
+                </span>
+                <span className={"text-xs ml-auto " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                  {driftStats.total_predictions} prédictions analysées
+                </span>
+              </div>
+            )}
+
+            {/* 4 KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-5">
+              <div className={cardClass + " p-4"}>
+                <p className={"text-xs mb-1 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Meilleur AUC-ROC</p>
+                <p className={"text-xl font-bold tabular-nums " + (isDark ? "text-white" : "text-gray-800")}>
+                  {bestRun?.auc_roc || "—"}
+                </p>
+                <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                  {bestRun?.modele || "—"}
+                </p>
+              </div>
+              <div className={cardClass + " p-4"}>
+                <p className={"text-xs mb-1 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Score métier</p>
+                <p className={"text-xl font-bold tabular-nums " + (isDark ? "text-white" : "text-gray-800")}>
+                  {lastResult?.new_score_metier?.toLocaleString() || bestRun?.score_metier || "—"}
+                </p>
+                <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                  {lastResult?.best_model || "Meilleur run"}
+                </p>
+              </div>
+              <div className={cardClass + " p-4"}>
+                <p className={"text-xs mb-1 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Version modèle</p>
+                <p className={"text-xl font-bold tabular-nums " + (isDark ? "text-white" : "text-gray-800")}>
+                  v{currentVersion}
+                </p>
+                <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                  {mlflowRuns.length} expériences
+                </p>
+              </div>
+              <div className={cardClass + " p-4"}>
+                <p className={"text-xs mb-1 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Statut drift</p>
+                <p className={"text-xl font-bold " +
+                  (hasCritical
+                    ? (isDark ? "text-red-400" : "text-red-600")
+                    : hasAlert
+                      ? (isDark ? "text-amber-400" : "text-amber-600")
+                      : (isDark ? "text-emerald-400" : "text-emerald-600"))}>
+                  {hasCritical ? "CRITIQUE" : hasAlert ? "ALERTE" : "NORMAL"}
+                </p>
+                <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                  {driftStats?.drift_features?.length || 0} features analysées
+                </p>
+              </div>
+            </div>
+
+            {/* Grille MLFlow + Drift */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+
+              {/* ── MLFlow Runs ── */}
+              <div>
+                <p className={"text-xs font-medium uppercase tracking-wider mb-3 " + headClass}>
+                  Expériences MLFlow
+                </p>
+                <div className={cardClass}>
+                  {mlflowRuns.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Activity size={26} className={"mx-auto mb-3 " + (isDark ? "text-zinc-700" : "text-gray-300")} />
+                      <p className={"text-sm " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                        Aucun run MLFlow disponible
+                      </p>
+                      <p className={"text-xs mt-1 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                        Lancez le serveur MLFlow sur le port 5000
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      {bestRun && (
+                        <div className={"p-4 border-b " + borderB}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Award size={13} className={isDark ? "text-zinc-500" : "text-gray-400"} />
+                            <p className={"text-xs font-medium " + (isDark ? "text-zinc-400" : "text-gray-500")}>
+                              Meilleur modèle en production
+                            </p>
+                          </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className={"font-semibold text-sm " + (isDark ? "text-white" : "text-gray-800")}>
+                                {bestRun.nom || bestRun.modele}
+                              </p>
+                              <p className={"text-xs mt-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                                ID : {bestRun.run_id} · {bestRun.statut}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className={"text-lg font-bold " + (isDark ? "text-white" : "text-gray-800")}>
+                                {bestRun.auc_roc}
+                              </p>
+                              <p className={"text-xs " + (isDark ? "text-zinc-500" : "text-gray-400")}>AUC-ROC</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[360px]">
+                          <thead>
+                            <tr className={"border-b " + borderB}>
+                              <th className={"text-left py-2.5 px-4 " + headClass}>Modèle</th>
+                              <th className={"text-center py-2.5 " + headClass}>AUC-ROC</th>
+                              <th className={"text-center py-2.5 " + headClass}>Score métier</th>
+                              <th className={"text-center py-2.5 pr-4 " + headClass}>Statut</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mlflowRuns.map((run, i) => {
+                              const isBest = i === 0
+                              const rowClass = "border-t transition-colors " +
+                                (isDark ? "border-zinc-800/50 hover:bg-zinc-800/20" : "border-gray-50 hover:bg-gray-50/80")
+                              return (
+                                <tr key={run.run_id} className={rowClass}>
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <p className={"text-xs font-medium " + (isDark ? "text-zinc-200" : "text-gray-700")}>
+                                        {run.modele}
+                                      </p>
+                                      {isBest && (
+                                        <span className={"text-xs px-1.5 py-0.5 rounded border font-medium " +
+                                          (isDark ? "border-amber-900 text-amber-400" : "border-amber-200 text-amber-600")}>
+                                          Best
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className={"py-3 text-center text-xs font-semibold tabular-nums " +
+                                    (isBest
+                                      ? (isDark ? "text-emerald-400" : "text-emerald-600")
+                                      : (isDark ? "text-zinc-300" : "text-gray-600"))}>
+                                    {run.auc_roc}
+                                  </td>
+                                  <td className={"py-3 text-center text-xs tabular-nums " +
+                                    (isDark ? "text-zinc-400" : "text-gray-500")}>
+                                    {run.score_metier ? Number(run.score_metier).toLocaleString() : "—"}
+                                  </td>
+                                  <td className="py-3 text-center pr-4">
+                                    <span className={isDark ? "text-emerald-400" : "text-emerald-600"}>✓</span>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Data Drift ── */}
+              <div>
+                <p className={"text-xs font-medium uppercase tracking-wider mb-3 " + headClass}>
+                  Analyse du Data Drift
+                </p>
+                <div className={cardClass}>
+                  {!driftStats ? (
+                    <div className="text-center py-12">
+                      <Database size={26} className={"mx-auto mb-3 " + (isDark ? "text-zinc-700" : "text-gray-300")} />
+                      <p className={"text-sm " + (isDark ? "text-zinc-500" : "text-gray-400")}>
+                        Données insuffisantes
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      {driftStats.drift_features?.map((f, i) => {
+                        const cfg = statutConfig[f.statut] || statutConfig["NORMAL"]
+                        const Icon = cfg.icon
+                        const isLast = i === driftStats.drift_features.length - 1
+                        const ecartPct = f.ecart_pct || 0
+                        const zScore = f.z_score || 0
+                        const barColor = f.statut === "NORMAL" ? "bg-emerald-500" :
+                                         f.statut === "ALERTE" ? "bg-amber-500" : "bg-red-500"
+                        const zBadgeClass = zScore > 2
+                          ? (isDark ? "border-red-900 text-red-400" : "border-red-200 text-red-600")
+                          : zScore > 1
+                            ? (isDark ? "border-amber-900 text-amber-400" : "border-amber-200 text-amber-600")
+                            : (isDark ? "border-emerald-900 text-emerald-400" : "border-emerald-200 text-emerald-600")
+
+                        return (
+                          <div key={f.feature} className={"p-4 " + (!isLast ? "border-b " + borderB : "")}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className={"w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 " + cfg.color}>
+                                  <Icon size={13} />
+                                </div>
+                                <p className={"text-sm font-medium " + (isDark ? "text-white" : "text-gray-800")}>
+                                  {f.feature}
+                                </p>
+                              </div>
+                              <span className={"text-xs px-2 py-0.5 rounded-full border font-medium " + cfg.color}>
+                                {f.statut}
+                              </span>
+                            </div>
+
+                            {/* Écart + Z-score */}
+                            <div className="mb-3">
+                              <div className="flex justify-between items-center text-xs mb-1">
+                                <span className={isDark ? "text-zinc-500" : "text-gray-400"}>Écart</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={"text-xs px-1.5 py-0.5 rounded border font-medium " + zBadgeClass}>
+                                    Z={zScore}
+                                  </span>
+                                  <span className={"font-medium " +
+                                    (f.statut === "NORMAL"
+                                      ? (isDark ? "text-emerald-400" : "text-emerald-600")
+                                      : f.statut === "ALERTE"
+                                        ? (isDark ? "text-amber-400" : "text-amber-600")
+                                        : (isDark ? "text-red-400" : "text-red-600"))}>
+                                    {ecartPct}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className={"w-full h-1.5 rounded-full " + (isDark ? "bg-zinc-800" : "bg-gray-100")}>
+                                <div
+                                  className={"h-1.5 rounded-full transition-all duration-700 " + barColor}
+                                  style={{ width: Math.min(ecartPct, 100) + "%" }}
+                                />
+                              </div>
+                              <p className={"text-xs mt-1 " + (isDark ? "text-zinc-600" : "text-gray-400")}>
+                                {zScore <= 1
+                                  ? "Distribution normale"
+                                  : zScore <= 2
+                                    ? "Dérive modérée"
+                                    : "Dérive significative"}
+                              </p>
+                            </div>
+
+                            {/* Ref vs Production */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-gray-50")}>
+                                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Référence</p>
+                                <p className={"text-xs font-semibold tabular-nums " + (isDark ? "text-zinc-200" : "text-gray-700")}>
+                                  {f.ref_mean?.toLocaleString()} FCFA
+                                </p>
+                              </div>
+                              <div className={"rounded-lg p-2.5 " + (isDark ? "bg-zinc-800/50" : "bg-gray-50")}>
+                                <p className={"text-xs mb-0.5 " + (isDark ? "text-zinc-500" : "text-gray-400")}>Production</p>
+                                <p className={"text-xs font-semibold tabular-nums " + (isDark ? "text-zinc-200" : "text-gray-700")}>
+                                  {f.prod_mean?.toLocaleString()} FCFA
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   )

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import predict
+from api.routes import retrain
 
 app = FastAPI(
     title="Score Crédit API",
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(predict.router, prefix="/api", tags=["Scoring"])
+app.include_router(retrain.router, prefix="/api", tags=["Réentraînement"])
 
 @app.get("/")
 def health_check():
