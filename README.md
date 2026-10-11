@@ -14,6 +14,14 @@ Plateforme MLOps complète de scoring crédit (prédiction du risque de défaut 
 
 ---
 
+## Démo vidéo
+
+[![Voir la démo vidéo (1 min 18)](docs/demo/score-credit-demo-poster.jpg)](docs/demo/score-credit-demo.mp4)
+
+Parcours filmé dans l'interface React : tableau de bord, nouveau client, analyse d'un dossier, simulation et monitoring. Pour la vidéo, l'interface est branchée sur une API de démonstration avec des données de test. Cliquez sur l'image pour lancer la vidéo (1 min 18), ou regardez-la sur [mon portfolio](https://jean-jacques-komhidi.github.io/jean-jacques-komhidi/#realisations).
+
+---
+
 ## Table des matières
 
 - [Contexte](#contexte)
